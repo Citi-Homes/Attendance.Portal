@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="referrer" content="no-referrer" />
+<meta http-equiv="X-Content-Type-Options" content="nosniff" />
+<title>Citi Homes Attendance Portal — Login</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000000;--surface:#0a0a0a;--surface2:#141414;--border:#2a2a2a;--border2:#3a3a3a;
+  --text:#FFFFFF;--text2:#CCCCCC;--text3:#888888;
+  --accent:#C4A882;--accent-dim:#A68B5B;--accent-bg:rgba(196,168,130,0.18);
+  --tab:#C4A882;--tab-dim:#A68B5B;--tab-text:#1a1a1a;
+  --green:#3FB950;--green-bg:rgba(63,185,80,0.1);
+  --orange:#F0883E;--orange-bg:rgba(240,136,62,0.1);
+  --red:#F85149;--red-bg:rgba(248,81,73,0.1);
+  --mono:'JetBrains Mono',monospace;
+  --r:10px;--r-lg:16px;
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.login-wrap{width:100%;max-width:420px}
+.brand{text-align:center;margin-bottom:36px}
+.brand-icon{width:52px;height:52px;border-radius:14px;background:var(--tab);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 0 0 4px var(--accent-bg)}
+.brand-icon svg{width:26px;height:26px;stroke:var(--tab-text);fill:none}
+.brand h1{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.brand p{font-size:13px;color:var(--text2);margin-top:5px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:28px;box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+.tabs{display:flex;background:var(--surface2);border-radius:8px;padding:3px;gap:3px;margin-bottom:24px}
+.tab{flex:1;padding:8px;text-align:center;font-size:13px;font-weight:500;border-radius:6px;cursor:pointer;color:var(--text2);transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--tab);color:var(--tab-text);font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,0.4)}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px}
+.field input,.field select{width:100%;padding:10px 13px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .15s,box-shadow .15s}
+.field input:focus,.field select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+.field input::placeholder{color:var(--text3)}
+.pass-wrap{position:relative}
+.pass-wrap input{padding-right:42px}
+.pass-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:color .15s}
+.pass-toggle:hover{color:var(--text)}
+.pass-toggle svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.btn-full{width:100%;padding:11px;background:var(--tab);border:none;border-radius:var(--r);color:var(--tab-text);font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-full:hover{background:var(--tab-dim)}
+.btn-full svg{width:16px;height:16px;stroke:currentColor;fill:none;flex-shrink:0}
+.err{background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:10px 13px;font-size:13px;color:var(--red);margin-bottom:16px;display:none}
+.hint{text-align:center;margin-top:18px;font-size:12px;color:var(--text3)}
+.hint strong{color:var(--text2)}
+footer{margin-top:28px;text-align:center;font-size:11px;color:var(--text3)}
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </div>
+    <h1>Citi Homes Attendance Portal</h1>
+    <p>Staff time &amp; attendance management</p>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" id="tab-employee" onclick="switchTab('employee')">Employee</div>
+      <div class="tab" id="tab-admin" onclick="switchTab('admin')">Admin</div>
+    </div>
+
+    <div id="err-box" class="err"></div>
+
+    <div id="form-employee">
+      <div class="field">
+        <label>Employee Code</label>
+        <input type="text" id="emp-code" placeholder="e.g. CH6" autocomplete="off" oninput="this.value=this.value.toUpperCase()" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="pass-wrap">
+          <input type="password" id="emp-pass" placeholder="Your password" onkeydown="if(event.key==='Enter')doEmployeeLogin()" />
+          <button type="button" class="pass-toggle" onclick="togglePass('emp-pass',this)" aria-label="Show password" title="Show password">
+            <svg class="icon-show" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="icon-hide" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn-full" type="button" onclick="doEmployeeLogin()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+        Sign in
+      </button>
+    </div>
+
+    <div id="form-admin" style="display:none">
+      <div class="field">
+        <label>Admin Email</label>
+        <input type="email" id="admin-user" placeholder="admin@citihomes.ae" autocomplete="username" onkeydown="if(event.key==='Enter')doAdminLogin()" />
+      </div>
+      <div class="field">
+        <label>Admin Password</label>
+        <div class="pass-wrap">
+          <input type="password" id="admin-pass" placeholder="Admin password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAdminLogin()" />
+          <button type="button" class="pass-toggle" onclick="togglePass('admin-pass',this)" aria-label="Show password" title="Show password">
+            <svg class="icon-show" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="icon-hide" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn-full" type="button" onclick="doAdminLogin()">
+        <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        Admin Sign in
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="shared.js"></script>
+<script>
+"use strict";
+
+let loginBusy = false;
+
+function switchTab(tab) {
+  document.getElementById("tab-employee").classList.toggle("active", tab === "employee");
+  document.getElementById("tab-admin").classList.toggle("active", tab === "admin");
+  document.getElementById("form-employee").style.display = tab === "employee" ? "" : "none";
+  document.getElementById("form-admin").style.display = tab === "admin" ? "" : "none";
+  document.getElementById("err-box").style.display = "none";
+}
+
+function showErr(msg) {
+  const el = document.getElementById("err-box");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function togglePass(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const show = input.type === "password";
+  input.type = show ? "text" : "password";
+  btn.querySelector(".icon-show").style.display = show ? "none" : "";
+  btn.querySelector(".icon-hide").style.display = show ? "" : "none";
+  btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+  btn.title = show ? "Hide password" : "Show password";
+}
+
+async function doEmployeeLogin() {
+  if (loginBusy) return;
+  const lockMsg = loginLockoutMessage();
+  if (lockMsg) { showErr(lockMsg); return; }
+
+  const code = document.getElementById("emp-code").value.trim().toUpperCase();
+  const pass = document.getElementById("emp-pass").value;
+  const emp = EMPLOYEES[code];
+
+  if (!code) { showErr("Please enter your employee code."); return; }
+  if (!pass) { showErr("Please enter your password."); return; }
+  if (!emp) { showErr("Employee code not found."); return; }
+  if (emp.status !== "Active") { showErr("Account is inactive. Contact HR."); return; }
+
+  loginBusy = true;
+  try {
+    if (!getConfig()) { showErr("Server config missing. Contact your administrator."); return; }
+    const ok = await verifyEmployeePassword(code, pass);
+    if (!ok) {
+      recordFailedLogin();
+      const msg = loginLockoutMessage();
+      showErr(msg || "Incorrect password.");
+      return;
+    }
+    clearLoginAttempts();
+    setSession({ role: "employee", empCode: code });
+    navigateTo("employee");
+  } catch (e) {
+    showErr("Login failed. Please refresh and try again.");
+  } finally {
+    loginBusy = false;
+  }
+}
+
+async function doAdminLogin() {
+  if (loginBusy) return;
+  const lockMsg = loginLockoutMessage();
+  if (lockMsg) { showErr(lockMsg); return; }
+
+  const user = document.getElementById("admin-user").value.trim();
+  const pass = document.getElementById("admin-pass").value;
+
+  if (!user) { showErr("Please enter admin email."); return; }
+  if (!pass) { showErr("Please enter admin password."); return; }
+
+  loginBusy = true;
+  try {
+    if (!getConfig()) { showErr("Server config missing. Contact your administrator."); return; }
+    const ok = await verifyAdminCredentials(user, pass);
+    if (!ok) {
+      recordFailedLogin();
+      const msg = loginLockoutMessage();
+      showErr(msg || "Invalid admin credentials.");
+      return;
+    }
+    clearLoginAttempts();
+    setSession({ role: "admin" });
+    navigateTo("admin");
+  } catch (e) {
+    showErr("Login failed. Please refresh and try again.");
+  } finally {
+    loginBusy = false;
+  }
+}
+
+if (!getConfig()) {
+  showErr("Missing config.js — copy config.example.js to config.js before signing in.");
+} else {
+  redirectIfLoggedIn();
+}
+</script>
+</body>
+</html>
