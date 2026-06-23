@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="referrer" content="no-referrer"/>
+<meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+<title>Citi Homes Attendance Portal — Employee</title>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<script src="config.js"></script>
+<script src="shared.js"></script>
+<script>const SESSION=requireEmployee();const EMP=SESSION.emp;const EMPCODE=SESSION.empCode;</script>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <a href="employee.html#mark" class="topbar-brand">
+    <div class="brand-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+    <span class="brand-name">Citi Homes Attendance Portal</span>
+  </a>
+  <div class="topbar-mid">
+    <span id="live-clock"></span>
+    <button class="btn btn-sm btn-ghost" onclick="logout()">
+      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      Sign out
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="emp-profile">
+      <div class="emp-avatar" id="sb-avatar"></div>
+      <div class="emp-name" id="sb-name"></div>
+      <div class="emp-code-pill" id="sb-code"></div>
+      <div class="emp-dept" id="sb-dept"></div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Attendance</div>
+      <div class="nav-item active" data-section="mark" onclick="showSection('mark', this)">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><polyline points="12 6 12 12 16 14"/></svg>
+        Mark Attendance
+      </div>
+      <div class="nav-item" data-section="my-records" onclick="showSection('my-records', this)">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        My Records
+      </div>
+      <div class="nav-item" data-section="summary" onclick="showSection('summary', this)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        Monthly Summary
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+
+    <!-- ══ MARK ATTENDANCE ══ -->
+    <div class="page-section active" id="sec-mark">
+      <div class="card-header" style="margin-bottom:20px">
+        <div><div class="card-title">Mark Attendance</div><div class="card-sub">Today: <span id="today-display"></span></div></div>
+        <div id="today-status-badge"></div>
+      </div>
+
+      <!-- Today summary -->
+      <div id="today-card" class="card" style="margin-bottom:16px"></div>
+
+      <!-- Action button -->
+      <div id="action-area"></div>
+    </div>
+
+    <!-- ══ MY RECORDS ══ -->
+    <div class="page-section" id="sec-my-records">
+      <div class="card-header" style="margin-bottom:20px">
+        <div><div class="card-title">My Attendance Records</div><div class="card-sub">Your personal history only</div></div>
+        <div style="display:flex;gap:8px">
+          <select id="filter-month" class="btn btn-sm" onchange="renderMyRecords()">
+            <option value="">All months</option>
+          </select>
+          <!-- <button class="btn btn-sm btn-primary" onclick="exportMyCSV()">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Export
+          </button> -->
+        </div>
+      </div>
+      <div id="my-records-wrap"></div>
+    </div>
+
+    <!-- ══ SUMMARY ══ -->
+    <div class="page-section" id="sec-summary">
+      <div class="card-header" style="margin-bottom:20px">
+        <div><div class="card-title">Monthly Summary</div><div class="card-sub">Hours &amp; attendance breakdown</div></div>
+        <select id="sum-month-sel" class="btn btn-sm" onchange="renderSummary()"></select>
+      </div>
+      <div id="summary-stats" class="stats-grid"></div>
+      <div class="card">
+        <div id="summary-breakdown"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══════════ MODALS ══════════ -->
+
+<!-- Category -->
+<div class="overlay" id="ov-cat">
+  <div class="modal">
+    <div class="modal-title">Select category</div>
+    <div class="modal-sub" id="cat-sub">Choose your attendance type for today</div>
+    <div class="cat-tiles cat-tiles-3" style="margin-top:16px">
+      <div class="cat-tile" onclick="selCat('office')">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="21" x2="8" y2="10"/><line x1="16" y1="21" x2="16" y2="10"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        <span>Office</span><small>Regular day</small>
+      </div>
+      <div class="cat-tile" onclick="selCat('procurement')">
+        <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        <span>Procurement</span><small>Field visits</small>
+      </div>
+      <div class="cat-tile" onclick="selCat('interview')">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        <span>Interview</span><small>Candidate eval</small>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeAll()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- Office Punch-In -->
+<div class="overlay" id="ov-off-in">
+  <div class="modal">
+    <div class="steps" id="st-off-in"></div>
+    <div class="modal-title">Office — Punch in</div>
+    <div class="modal-sub">Your check-in time is recorded automatically</div>
+    <div class="ts-block" id="ts-off-in"></div>
+    <div class="field"><label>Remarks (optional)</label><textarea id="off-in-rem" placeholder="Any notes..."></textarea></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-success" onclick="saveOffIn()">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Confirm &amp; Record
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Office Punch-Out -->
+<div class="overlay" id="ov-off-out">
+  <div class="modal">
+    <div class="steps" id="st-off-out"></div>
+    <div class="modal-title">Office — Punch out</div>
+    <div class="modal-sub">Confirm your end-of-day check-out</div>
+    <div class="ts-block" id="ts-off-out"></div>
+    <div class="field"><label>Additional remarks (optional)</label><textarea id="off-out-rem" placeholder="End of day notes..."></textarea></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Close for now</button>
+      <button class="btn btn-primary" onclick="saveOffOut()">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>Punch out
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Procurement Punch-In -->
+<div class="overlay" id="ov-proc-in">
+  <div class="modal">
+    <div class="steps" id="st-proc-in"></div>
+    <div class="modal-title" id="proc-in-title">Procurement — Punch in</div>
+    <div class="modal-sub">Confirm your departure time</div>
+    <div id="proc-prev-visits"></div>
+    <div class="ts-block" id="ts-proc-in"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-success" onclick="saveProcIn()">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Confirm
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Procurement Client -->
+<div class="overlay" id="ov-proc-client">
+  <div class="modal">
+    <div class="steps" id="st-proc-client"></div>
+    <div class="modal-title">Who are you visiting?</div>
+    <div class="modal-sub">Enter contact details for this visit</div>
+    <div class="row">
+      <div class="field"><label>Type</label>
+        <select id="proc-type" onchange="onProcTypeChange()">
+          <option>Client</option><option>Broker</option><option>Institute</option><option value="Office">Office (returning)</option>
+        </select>
+      </div>
+      <div class="field"><label>Name</label><input type="text" id="proc-cname" placeholder="Contact name..."/></div>
+    </div>
+    <div id="proc-office-note" class="notice notice-warn" style="display:none">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Selecting "Office" ends your procurement session and records your punch-out.
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProcClient()">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- Procurement Reason -->
+<div class="overlay" id="ov-proc-reason">
+  <div class="modal">
+    <div class="steps" id="st-proc-reason"></div>
+    <div class="modal-title">Purpose of visit</div>
+    <div class="modal-sub" id="proc-reason-sub">Visiting: —</div>
+    <div class="field"><label>Reason / purpose</label><textarea id="proc-reason-txt" placeholder="Describe the purpose..."></textarea></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProcReason()">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- Procurement Next/End -->
+<div class="overlay" id="ov-proc-next">
+  <div class="modal">
+    <div class="modal-title">Visit recorded ✓</div>
+    <div class="modal-sub" id="proc-next-time"></div>
+    <div id="proc-all-visits"></div>
+    <div id="proc-warn-18" class="notice notice-warn" style="display:none;margin-top:10px">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Approaching 18:00. Please plan to return to office.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+      <button class="btn" style="justify-content:flex-start" onclick="procNextVisit()">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Add next visit (client/broker/institute)
+      </button>
+      <button class="btn btn-success" style="justify-content:flex-start" onclick="procReturnOffice()">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="21" x2="8" y2="10"/><line x1="16" y1="21" x2="16" y2="10"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        Return to office &amp; punch out
+      </button>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeAll()">Save &amp; close</button></div>
+  </div>
+</div>
+
+<!-- Interview Location -->
+<div class="overlay" id="ov-iv-loc">
+  <div class="modal">
+    <div class="steps" id="st-iv-loc"></div>
+    <div class="modal-title">Interview — Location</div>
+    <div class="modal-sub">Where is the interview taking place?</div>
+    <div class="cat-tiles cat-tiles-2" style="margin-top:16px">
+      <div class="cat-tile" onclick="selIvLoc('inside')">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="21" x2="8" y2="10"/><line x1="16" y1="21" x2="16" y2="10"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        <span>Inside office</span><small>On-site interview</small>
+      </div>
+      <div class="cat-tile" onclick="selIvLoc('outside')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+        <span>Outside office</span><small>External venue</small>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeAll()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- Interview Inside Time -->
+<div class="overlay" id="ov-iv-inside">
+  <div class="modal">
+    <div class="steps" id="st-iv-inside"></div>
+    <div class="modal-title">Interview — Start time</div>
+    <div class="modal-sub">Confirm start (inside office)</div>
+    <div class="ts-block" id="ts-iv-inside"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-success" onclick="saveIvInsideStart()">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Confirm
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Interview Outside Area -->
+<div class="overlay" id="ov-iv-area">
+  <div class="modal">
+    <div class="steps" id="st-iv-area"></div>
+    <div class="modal-title">Interview — Location area</div>
+    <div class="modal-sub">Where is the external interview venue?</div>
+    <div class="field"><label>Area / address</label><input type="text" id="iv-area-inp" placeholder="e.g. Dubai Marina, Business Bay..."/></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveIvArea()">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- Interview Dates -->
+<div class="overlay" id="ov-iv-dates">
+  <div class="modal">
+    <div class="steps" id="st-iv-dates"></div>
+    <div class="modal-title">Interview — Schedule</div>
+    <div class="modal-sub">Set start and end date/time (past dates not allowed)</div>
+    <div class="field"><label>Start date &amp; time</label><input type="datetime-local" id="iv-start-dt"/></div>
+    <div class="field"><label>End date &amp; time</label><input type="datetime-local" id="iv-end-dt"/></div>
+    <div id="iv-dt-err" class="notice notice-warn" style="display:none">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="iv-dt-err-msg"></span>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveIvDates()">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- Interview Position -->
+<div class="overlay" id="ov-iv-pos">
+  <div class="modal">
+    <div class="steps" id="st-iv-pos"></div>
+    <div class="modal-title">Interview — Position</div>
+    <div class="modal-sub">What role is being evaluated?</div>
+    <div class="field"><label>Job title / position</label><input type="text" id="iv-pos-inp" placeholder="e.g. Senior Accountant..."/></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveIvPos()">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- Interview Candidate -->
+<div class="overlay" id="ov-iv-cand">
+  <div class="modal">
+    <div class="steps" id="st-iv-cand"></div>
+    <div class="modal-title">Interview — Candidate</div>
+    <div class="modal-sub" id="iv-cand-sub">Position: —</div>
+    <div class="row">
+      <div class="field"><label>Candidate name</label><input type="text" id="iv-cname" placeholder="Full name..."/></div>
+      <div class="field"><label>Contact number</label><input type="tel" id="iv-cphone" placeholder="+971 50 000 0000"/></div>
+    </div>
+    <div class="field"><label>Remarks (optional)</label><textarea id="iv-remarks" placeholder="Additional notes..."></textarea></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-success" onclick="saveIvCand()">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Save record
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Init ── */
+let flow={};
+let allRecords=loadRecords();
+
+function todayRecs(){return allRecords.filter(r=>r.empCode===EMPCODE&&r.punchIn.includes(fmtDate(new Date()).split('·')[0].trim().substring(5)));}
+// More reliable today check
+function isToday(r){const today=todayISO();return r.punchIn.includes(today)||r.punchIn.startsWith(fmtDate(new Date()).split(',')[1]?.trim().substring(0,6)||'NOMATCH');}
+
+function myRecs(){return allRecords.filter(r=>r.empCode===EMPCODE);}
+
+/* ── Sidebar populate ── */
+document.getElementById('sb-avatar').textContent=EMP.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+document.getElementById('sb-name').textContent=EMP.name;
+document.getElementById('sb-code').textContent=EMPCODE;
+document.getElementById('sb-dept').textContent=EMP.dept;
+
+/* ── Clock ── */
+function tick(){
+  const d=new Date();
+  document.getElementById('live-clock').textContent=fmtDate(d)+' · '+fmtTime(d);
+  document.getElementById('today-display').textContent=fmtDate(d);
+}
+setInterval(tick,1000);tick();
+
+/* ── Section nav ── */
+function showSection(id, el){
+  document.querySelectorAll('.page-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  const nav=el||document.querySelector(`.nav-item[data-section="${id}"]`);
+  if(nav) nav.classList.add('active');
+  if(location.hash!=='#'+id) history.replaceState(null,'','#'+id);
+  if(id==='my-records') renderMyRecords();
+  if(id==='summary') renderSummary();
+}
+
+/* ── Modal helpers ── */
+function openOv(id){document.getElementById(id).classList.add('open');}
+function closeOv(id){document.getElementById(id).classList.remove('open');}
+function closeAll(){document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open'));}
+function setSteps(id,cur,tot){
+  const el=document.getElementById(id);if(!el)return;
+  el.innerHTML='';
+  for(let i=1;i<=tot;i++){const d=document.createElement('div');d.className='step-dot'+(i<cur?' done':i===cur?' active':'');el.appendChild(d);}
+}
+function tsBlock(id){
+  const d=new Date();
+  document.getElementById(id).innerHTML=`
+    <div class="ts-icon"><svg viewBox="0 0 24 24" stroke="var(--accent)" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+    <div><div class="ts-time">${fmtTime(d)}</div><div class="ts-date">${fmtDate(d)}</div></div>`;
+}
+
+function silentLocIn(rec){
+  rec.locIn=getSilentLocSnapshot();
+  refreshRecordLoc(rec,'locIn',()=>saveRecords(allRecords));
+}
+function silentLocOut(rec){
+  rec.locOut=getSilentLocSnapshot();
+  refreshRecordLoc(rec,'locOut',()=>saveRecords(allRecords));
+}
+
+/* ── Today card ── */
+function renderTodayCard(){
+  allRecords=loadRecords();
+  const todayStr=fmtDate(new Date());
+  const card=document.getElementById('today-card');
+  const badge=document.getElementById('today-status-badge');
+  const area=document.getElementById('action-area');
+
+  if(isSundayToday()){
+    badge.innerHTML='<span class="badge badge-gray">Weekly off</span>';
+    card.innerHTML=`<div class="notice notice-info" style="margin:0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Today is Sunday — weekly off. Attendance is not required and hours are not counted.</div>`;
+    area.innerHTML='';
+    return;
+  }
+
+  const recs=allRecords.filter(r=>r.empCode===EMPCODE&&r.punchIn.includes(todayStr.split(',')[1].trim().substring(0,6)));
+
+  if(!recs.length){
+    badge.innerHTML='<span class="badge badge-gray">No check-in yet</span>';
+    card.innerHTML=`<div class="empty-state" style="padding:24px">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <p>You haven't marked attendance today.</p></div>`;
+    area.innerHTML=`<button class="btn btn-primary btn-lg" onclick="beginFlow()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Mark Attendance Now</button>`;
+    return;
+  }
+
+  const latest=recs[0];
+  const mins=calcHours(latest.punchIn,latest.punchOut);
+  badge.innerHTML=statusBadge(latest.status);
+
+  let detHtml='';
+  if(latest.category==='Interview'&&latest.extra){
+    detHtml=`<div style="margin-top:10px;font-size:12px;color:var(--text2)"><b>Location:</b> ${latest.extra.ivLocation||''} &nbsp;|&nbsp; <b>Position:</b> ${latest.extra.position||''} &nbsp;|&nbsp; <b>Candidate:</b> ${latest.extra.candidateName||''}</div>`;
+  } else if(latest.category==='Procurement'&&latest.extra&&latest.extra.visits){
+    detHtml=`<ul class="visit-list" style="margin-top:10px">${latest.extra.visits.map((v,i)=>`<li><strong>Visit ${i+1}:</strong> ${escapeHtml(v.clientType)}: ${escapeHtml(v.clientName)} — ${escapeHtml(v.reason)}</li>`).join('')}</ul>`;
+  }
+
+  card.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+    <div style="flex:1;min-width:200px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Today's Record</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">${catBadge(latest.category)}&nbsp;${statusBadge(latest.status)}</div>
+      <div style="font-size:12px;color:var(--text2)"><b>Punch in:</b> ${latest.punchIn.split('·')[1]?.trim()||latest.punchIn}</div>
+      ${latest.punchOut?`<div style="font-size:12px;color:var(--text2);margin-top:3px"><b>Punch out:</b> ${latest.punchOut.split('·')[1]?.trim()||latest.punchOut}</div>`:''}
+      ${latest.remarks ? `<div style="font-size:12px;color:var(--text2);margin-top:3px"><b>Remarks:</b> ${escapeHtml(latest.remarks)}</div>` : ''}
+      ${detHtml}
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Hours</div>
+      <div class="hours-pill" style="font-size:15px;padding:6px 12px">${mins?fmtHours(mins):'In progress'}</div>
+      ${mins?`<div style="font-size:11px;color:var(--text3);margin-top:4px;text-align:center">${decimalHours(mins)} decimal hrs</div>`:''}
+    </div>
+  </div>`;
+
+  // Action buttons
+  if(latest.status==='Punched In'){
+    area.innerHTML=`<button class="btn btn-primary btn-lg" onclick="openPunchOut(${latest.id})">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      Punch Out</button>`;
+  } else if(latest.status==='In Progress'){
+    area.innerHTML=`<button class="btn btn-primary btn-lg" onclick="continueProcurement(${latest.id})">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      Continue Procurement</button>`;
+  } else {
+    area.innerHTML=`<div class="notice notice-success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Attendance recorded for today. See you tomorrow!</div>`;
+  }
+}
+
+/* ── Begin flow ── */
+function beginFlow(){
+  if(isSundayToday()) return;
+  flow={empCode:EMPCODE,emp:EMP,procVisits:[],procMainRec:null};
+  prefetchSilentLocation();
+  openOv('ov-cat');
+}
+
+/* ── Category ── */
+function selCat(cat){
+  flow.category=cat;
+  closeAll();
+  if(cat==='office'){setSteps('st-off-in',1,2);tsBlock('ts-off-in');openOv('ov-off-in');}
+  else if(cat==='procurement'){renderProcPrev();setSteps('st-proc-in',1,4);tsBlock('ts-proc-in');openOv('ov-proc-in');}
+  else if(cat==='interview'){setSteps('st-iv-loc',1,5);openOv('ov-iv-loc');}
+}
+
+/* ══ OFFICE ══ */
+function saveOffIn(){
+  const d=new Date();
+  const rec={id:Date.now(),empCode:EMPCODE,empName:EMP.name,designation:EMP.desig,department:EMP.dept,
+    category:'Office',punchIn:fmtDT(d),punchOut:'',remarks:document.getElementById('off-in-rem').value.trim(),
+    locIn:null,locOut:null,status:'Punched In',extra:{}};
+  silentLocIn(rec);
+  allRecords.unshift(rec);flow.activeId=rec.id;saveRecords(allRecords);
+  closeAll();setSteps('st-off-out',2,2);tsBlock('ts-off-out');
+  document.getElementById('off-out-rem').value='';openOv('ov-off-out');renderTodayCard();
+}
+function saveOffOut(){
+  const d=new Date();
+  const rec=allRecords.find(r=>r.id===flow.activeId);
+  if(rec){
+    rec.punchOut=fmtDT(d);rec.status='Completed';
+    silentLocOut(rec);
+    const ex=document.getElementById('off-out-rem').value.trim();
+    if(ex)rec.remarks=(rec.remarks?rec.remarks+' | ':'')+ex;
+    saveRecords(allRecords);
+  }
+  closeAll();renderTodayCard();
+}
+function openPunchOut(id){
+  flow.activeId=id;setSteps('st-off-out',2,2);
+  tsBlock('ts-off-out');document.getElementById('off-out-rem').value='';openOv('ov-off-out');
+}
+
+/* ══ PROCUREMENT ══ */
+function renderProcPrev(){
+  const vl=document.getElementById('proc-prev-visits');
+  document.getElementById('proc-in-title').textContent=flow.procVisits.length===0?'Procurement — Punch in':`Procurement — Visit #${flow.procVisits.length+1}`;
+  vl.innerHTML=flow.procVisits.length?`<ul class="visit-list">${flow.procVisits.map((v,i)=>`<li><strong>Visit ${i+1}:</strong> ${v.clientType}: ${v.clientName} — ${v.reason}</li>`).join('')}</ul>`:'';
+}
+function saveProcIn(){
+  const d=new Date();
+  const locSnap=getSilentLocSnapshot();
+  flow.curVisit={punchIn:fmtDT(d),locIn:locSnap};
+  if(!flow.procMainRec){
+    flow.procMainRec={id:Date.now(),empCode:EMPCODE,empName:EMP.name,designation:EMP.desig,department:EMP.dept,
+      category:'Procurement',punchIn:fmtDT(d),punchOut:'',remarks:'',locIn:locSnap,locOut:null,status:'In Progress',extra:{visits:[]}};
+    allRecords.unshift(flow.procMainRec);flow.activeId=flow.procMainRec.id;
+    silentLocIn(flow.procMainRec);
+  }
+  saveRecords(allRecords);closeAll();
+  document.getElementById('proc-type').value='Client';document.getElementById('proc-cname').value='';
+  document.getElementById('proc-office-note').style.display='none';
+  setSteps('st-proc-client',2,4);openOv('ov-proc-client');
+}
+function onProcTypeChange(){
+  document.getElementById('proc-office-note').style.display=document.getElementById('proc-type').value==='Office'?'flex':'none';
+}
+function saveProcClient(){
+  const type=document.getElementById('proc-type').value;
+  const name=document.getElementById('proc-cname').value.trim();
+  if(type!=='Office'&&!name){alert('Please enter a name.');return;}
+  if(type==='Office'){
+    flow.curVisit.clientType='Office';flow.curVisit.clientName='Returned to office';flow.curVisit.reason='End of field work';
+    flow.procVisits.push({...flow.curVisit});finaliseProcRecord();return;
+  }
+  flow.curVisit.clientType=type;flow.curVisit.clientName=name;
+  closeAll();document.getElementById('proc-reason-sub').textContent=`Visiting: ${type} — ${name}`;
+  document.getElementById('proc-reason-txt').value='';
+  setSteps('st-proc-reason',3,4);openOv('ov-proc-reason');
+}
+function saveProcReason(){
+  const r=document.getElementById('proc-reason-txt').value.trim();
+  if(!r){alert('Please enter a reason.');return;}
+  flow.curVisit.reason=r;flow.procVisits.push({...flow.curVisit});
+  updateProcRecord();closeAll();
+  const n=new Date();
+  document.getElementById('proc-next-time').textContent='Recorded at '+fmtTime(n);
+  document.getElementById('proc-warn-18').style.display=n.getHours()>=17?'flex':'none';
+  document.getElementById('proc-all-visits').innerHTML=`<ul class="visit-list">${flow.procVisits.map((v,i)=>`<li><strong>Visit ${i+1}:</strong> ${v.clientType}: ${v.clientName} — ${v.reason}</li>`).join('')}</ul>`;
+  openOv('ov-proc-next');renderTodayCard();
+}
+function updateProcRecord(){
+  const rec=allRecords.find(r=>r.id===flow.activeId);
+  if(rec){rec.extra.visits=flow.procVisits;rec.remarks=flow.procVisits.map((v,i)=>`Visit ${i+1}: ${v.clientType} ${v.clientName} — ${v.reason}`).join(' | ');}
+  saveRecords(allRecords);
+}
+function procNextVisit(){
+  if(new Date().getHours()>=18){alert('Work day ended (18:00). Please return to office.');procReturnOffice();return;}
+  closeAll();renderProcPrev();setSteps('st-proc-in',1,4);tsBlock('ts-proc-in');openOv('ov-proc-in');
+}
+function procReturnOffice(){
+  const d=new Date();
+  const rec=allRecords.find(r=>r.id===flow.activeId);
+  if(rec){
+    rec.punchOut=fmtDT(d);rec.status='Completed';
+    silentLocOut(rec);
+    saveRecords(allRecords);
+  }
+  closeAll();renderTodayCard();
+}
+function finaliseProcRecord(){
+  updateProcRecord();procReturnOffice();
+}
+function continueProcurement(id){
+  flow={empCode:EMPCODE,emp:EMP,procVisits:[],activeId:id};
+  const rec=allRecords.find(r=>r.id===id);
+  if(rec&&rec.extra&&rec.extra.visits)flow.procVisits=[...rec.extra.visits];
+  flow.procMainRec=rec;
+  renderProcPrev();setSteps('st-proc-in',1,4);tsBlock('ts-proc-in');openOv('ov-proc-in');
+}
+
+/* ══ INTERVIEW ══ */
+function selIvLoc(loc){
+  flow.ivLoc=loc;closeAll();
+  if(loc==='inside'){setSteps('st-iv-inside',2,5);tsBlock('ts-iv-inside');openOv('ov-iv-inside');}
+  else{setSteps('st-iv-area',2,5);document.getElementById('iv-area-inp').value='';openOv('ov-iv-area');}
+}
+function saveIvInsideStart(){
+  const d=new Date();
+  flow.ivStart=fmtDT(d);flow.ivEnd='';
+  flow.ivLocIn=getSilentLocSnapshot();
+  prefetchSilentLocation();
+  getLocation(loc=>{flow.ivLocIn=loc;});
+  closeAll();document.getElementById('iv-pos-inp').value='';setSteps('st-iv-pos',3,5);openOv('ov-iv-pos');
+}
+function saveIvArea(){
+  const a=document.getElementById('iv-area-inp').value.trim();
+  if(!a){alert('Please enter area.');return;}
+  flow.ivArea=a;closeAll();
+  const n=new Date();
+  const nd=`${todayISO()}T${p2(n.getHours())}:${p2(n.getMinutes())}`;
+  document.getElementById('iv-start-dt').min=nowDTLocal();document.getElementById('iv-start-dt').value=nd;
+  document.getElementById('iv-end-dt').min=nowDTLocal();document.getElementById('iv-end-dt').value='';
+  document.getElementById('iv-dt-err').style.display='none';
+  setSteps('st-iv-dates',3,5);openOv('ov-iv-dates');
+}
+function saveIvDates(){
+  const s=document.getElementById('iv-start-dt').value;
+  const e=document.getElementById('iv-end-dt').value;
+  const errEl=document.getElementById('iv-dt-err');const errMsg=document.getElementById('iv-dt-err-msg');
+  if(!s||!e){errMsg.textContent='Please fill both dates.';errEl.style.display='flex';return;}
+  if(new Date(s)<new Date(nowDTLocal())){errMsg.textContent='Past dates are not allowed.';errEl.style.display='flex';return;}
+  if(new Date(e)<=new Date(s)){errMsg.textContent='End must be after start.';errEl.style.display='flex';return;}
+  flow.ivStart=s.replace('T',' ');flow.ivEnd=e.replace('T',' ');
+  flow.ivLocIn=getSilentLocSnapshot();
+  prefetchSilentLocation();
+  getLocation(loc=>{flow.ivLocIn=loc;});
+  closeAll();document.getElementById('iv-pos-inp').value='';setSteps('st-iv-pos',4,5);openOv('ov-iv-pos');
+}
+function saveIvPos(){
+  const p=document.getElementById('iv-pos-inp').value.trim();
+  if(!p){alert('Please enter position.');return;}
+  flow.ivPos=p;closeAll();
+  document.getElementById('iv-cand-sub').textContent='Position: '+p;
+  ['iv-cname','iv-cphone'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('iv-remarks').value='';
+  setSteps('st-iv-cand',5,5);openOv('ov-iv-cand');
+}
+function saveIvCand(){
+  const name=document.getElementById('iv-cname').value.trim();
+  const phone=document.getElementById('iv-cphone').value.trim();
+  const rem=document.getElementById('iv-remarks').value.trim();
+  if(!name){alert('Please enter candidate name.');return;}
+  const rec={id:Date.now(),empCode:EMPCODE,empName:EMP.name,designation:EMP.desig,department:EMP.dept,
+    category:'Interview',punchIn:flow.ivStart,punchOut:flow.ivEnd,remarks:rem,
+    locIn:flow.ivLocIn||getSilentLocSnapshot(),locOut:null,status:'Recorded',
+    extra:{ivLocation:flow.ivLoc==='inside'?'Inside office':'Outside — '+flow.ivArea,position:flow.ivPos,candidateName:name,candidateContact:phone}};
+  silentLocIn(rec);
+  allRecords.unshift(rec);saveRecords(allRecords);closeAll();renderTodayCard();
+}
+
+/* ── My Records ── */
+function populateMonthFilters(){
+  const months=[...new Set(allRecords.filter(r=>r.empCode===EMPCODE).map(r=>{const d=r.punchIn;const m=MONTH_SHORT.find(m=>d.includes(m));const y=d.match(/\d{4}/)?.[0];return m&&y?`${m} ${y}`:null}).filter(Boolean))];
+  const sel=document.getElementById('filter-month');
+  sel.innerHTML='<option value="">All months</option>'+months.map(m=>`<option>${m}</option>`).join('');
+  const ssel=document.getElementById('sum-month-sel');
+  ssel.innerHTML=months.map(m=>`<option>${m}</option>`).join('');
+}
+
+function renderMyRecords(){
+  const filter=document.getElementById('filter-month').value;
+  const recs=allRecords.filter(r=>r.empCode===EMPCODE&&(!filter||r.punchIn.includes(filter)));
+  const wrap=document.getElementById('my-records-wrap');
+  if(!recs.length){wrap.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No records found.</p></div>';return;}
+  let html=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Punch In</th><th>Punch Out</th><th>Hours</th><th>Details</th><th>Remarks</th><th>Status</th></tr></thead><tbody>`;
+  recs.forEach(r=>{
+    const mins=calcHours(r.punchIn,r.punchOut);
+    let det='';
+    if(r.category==='Interview'&&r.extra)det=`<div style="font-size:11px;line-height:1.7;color:var(--text2)"><div><b>Location:</b> ${r.extra.ivLocation||''}</div><div><b>Position:</b> ${r.extra.position||''}</div><div><b>Candidate:</b> ${r.extra.candidateName||''}</div>${r.extra.candidateContact?`<div><b>Contact:</b> ${r.extra.candidateContact}</div>`:''}</div>`;
+    else if(r.category==='Procurement'&&r.extra&&r.extra.visits)det=`<div style="font-size:11px;line-height:1.7;color:var(--text2)">${r.extra.visits.map((v,i)=>`<div><b>V${i+1}:</b> ${v.clientType} ${v.clientName}</div>`).join('')}</div>`;
+    const inT=r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn;
+    const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'';
+    const dateT=r.punchIn.includes('·')?r.punchIn.split('·')[0].trim():r.punchIn.substring(0,15);
+    html+=`<tr><td style="font-size:11px;white-space:nowrap;color:var(--text2)">${dateT}</td><td>${catBadge(r.category)}</td><td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${inT}</td><td style="font-family:var(--mono);font-size:12px;white-space:nowrap">${outT||'<span style="color:var(--text3)">—</span>'}</td><td>${mins?`<span class="hours-pill">${fmtHours(mins)}</span>`:'<span style="color:var(--text3)">—</span>'}</td><td>${det}</td><td style="font-size:11px;color:var(--text2);max-width:120px">${r.remarks?escapeHtml(r.remarks):'<span style="color:var(--text3)">—</span>'}</td><td>${statusBadge(r.status)}</td></tr>`;
+  });
+  html+='</tbody></table></div>';wrap.innerHTML=html;
+}
+
+/* ── Summary ── */
+function renderSummary(){
+  populateMonthFilters();
+  const filter=document.getElementById('sum-month-sel').value;
+  const recs=allRecords.filter(r=>r.empCode===EMPCODE&&(!filter||r.punchIn.includes(filter)));
+  const totalMins=recs.reduce((s,r)=>{const m=calcHours(r.punchIn,r.punchOut);return s+(m||0);},0);
+  const workDays=recs.filter(r=>calcHours(r.punchIn,r.punchOut)).length;
+  const otMins=recs.reduce((s,r)=>{const m=calcHours(r.punchIn,r.punchOut);return s+(m&&m>480?m-480:0);},0);
+  document.getElementById('summary-stats').innerHTML=`
+    <div class="stat-card accent"><div class="stat-val">${fmtHours(totalMins)}</div><div class="stat-label">Total hours</div></div>
+    <div class="stat-card green"><div class="stat-val">${workDays}</div><div class="stat-label">Work days</div></div>
+    <div class="stat-card orange"><div class="stat-val">${fmtHours(otMins)}</div><div class="stat-label">Overtime hrs</div></div>
+    <div class="stat-card purple"><div class="stat-val">${decimalHours(totalMins)}</div><div class="stat-label">Decimal hours</div></div>`;
+  const cats={Office:0,Procurement:0,Interview:0};
+  recs.forEach(r=>{if(cats[r.category]!==undefined)cats[r.category]++;});
+  document.getElementById('summary-breakdown').innerHTML=`
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text2)">Breakdown by category</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${Object.entries(cats).map(([cat,count])=>`<div style="display:flex;align-items:center;gap:10px"><span style="width:90px">${catBadge(cat)}</span><div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden"><div style="height:100%;background:var(--accent);width:${workDays?Math.round(count/workDays*100):0}%;border-radius:4px"></div></div><span style="font-size:12px;color:var(--text2);width:30px;text-align:right">${count}</span></div>`).join('')}
+    </div>`;
+}
+
+/* ── Export My CSV ── */
+function exportMyCSV(){
+  const recs=allRecords.filter(r=>r.empCode===EMPCODE);
+  if(!recs.length){alert('No records to export.');return;}
+  const hdr=['Date','Category','PunchIn','PunchOut','Hours(decimal)','Status','Details','Remarks'];
+  const rows=recs.map(r=>{
+    const mins=calcHours(r.punchIn,r.punchOut);
+    let det='';
+    if(r.category==='Interview'&&r.extra)det=`Loc:${r.extra.ivLocation||''} Pos:${r.extra.position||''} Cand:${r.extra.candidateName||''}`;
+    else if(r.category==='Procurement'&&r.extra&&r.extra.visits)det=r.extra.visits.map((v,i)=>`V${i+1}:${v.clientType} ${v.clientName}`).join(' | ');
+    return [r.punchIn.split('·')[0].trim(),r.category,`"${r.punchIn}"`,`"${r.punchOut||''}"`,decimalHours(mins),r.status,`"${det}"`,`"${(r.remarks||'').replace(/"/g,'""')}"`].join(',');
+  });
+  const csv=[hdr.join(','),...rows].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`${EMPCODE}_attendance_${todayISO()}.csv`;a.click();
+}
+
+/* ── Init ── */
+prefetchSilentLocation();
+populateMonthFilters();
+renderTodayCard();
+initHashRouting(['mark','my-records','summary'], showSection, 'mark');
+</script>
+</body>
+</html>
