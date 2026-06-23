@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="referrer" content="no-referrer"/>
+<meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+<title>Citi Homes Attendance Portal — Admin</title>
+<link rel="stylesheet" href="styles.css"/>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<script src="config.js"></script>
+<script src="shared.js"></script>
+<script>const ADMIN_SESSION=requireAdmin();const ADMIN_CAN_WRITE=ADMIN_SESSION.adminMode!=='readonly';</script>
+
+<header class="topbar">
+  <a href="admin.html#overview" class="topbar-brand">
+    <div class="brand-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
+    <span class="brand-name">Citi Homes Attendance Portal</span>
+  </a>
+  <div class="topbar-mid">
+    <span id="live-clock"></span>
+    <button class="btn btn-sm btn-ghost" onclick="logout()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign out
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div style="padding:6px 8px 14px;border-bottom:1px solid var(--border);margin-bottom:14px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Signed in as</div>
+      <div id="admin-role-label" style="font-size:13px;font-weight:600;color:var(--accent)">Administrator</div>
+      <div id="admin-readonly-note" style="display:none;font-size:11px;color:var(--text3);margin-top:6px;line-height:1.4">View-only access — cannot edit or delete records</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Overview</div>
+      <div class="nav-item active" id="nav-overview" data-section="overview" onclick="showSec('overview',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Records</div>
+      <div class="nav-item" id="nav-all" data-section="all-records" onclick="showSec('all-records',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>All Records
+      </div>
+      <div class="nav-item" id="nav-location" data-section="location" onclick="showSec('location',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>Location Data
+      </div>
+      <div class="nav-item" id="nav-hours" data-section="hours" onclick="showSec('hours',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Hours Report
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Tools</div>
+      <div class="nav-item" id="nav-employees" data-section="employees" onclick="showSec('employees',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>Employees
+      </div>
+      <div class="nav-item" id="nav-manual-ts" data-section="manual-timesheet" onclick="showSec('manual-timesheet',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>Manual Timesheet
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="page-section active" id="sec-overview">
+      <div class="card-header" style="margin-bottom:20px">
+        <div><div class="card-title">Dashboard</div><div class="card-sub" id="dash-date"></div></div>
+        <button class="btn btn-sm btn-primary" onclick="refreshAll()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>Refresh
+        </button>
+      </div>
+      <div id="dash-stats" class="stats-grid"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;flex-wrap:wrap">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:14px">Today's Check-ins</div>
+          <div id="today-checkins"></div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:14px">Category Breakdown</div>
+          <div id="cat-breakdown"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:0">
+        <div class="card-title" style="margin-bottom:14px">Missing Punch-outs Today</div>
+        <div id="missing-punchout"></div>
+      </div>
+    </div>
+
+    <!-- ══ ALL RECORDS ══ -->
+    <div class="page-section" id="sec-all-records">
+      <div class="card-header" style="margin-bottom:16px">
+        <div><div class="card-title">All Attendance Records</div><div class="card-sub" id="all-rec-count"></div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm btn-primary" onclick="exportAllCSV()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export CSV
+          </button>
+        </div>
+      </div>
+      <div class="filters">
+        <select id="f-emp" onchange="renderAllRecs()"><option value="">All employees</option></select>
+        <select id="f-cat" onchange="renderAllRecs()"><option value="">All categories</option><option>Office</option><option>Procurement</option><option>Interview</option></select>
+        <select id="f-month" onchange="renderAllRecs()"><option value="">All months</option></select>
+        <select id="f-status" onchange="renderAllRecs()"><option value="">All statuses</option><option>Completed</option><option>Recorded</option><option>In Progress</option><option>Punched In</option></select>
+        <input type="text" id="f-search" placeholder="Search name..." oninput="renderAllRecs()" style="width:150px"/>
+      </div>
+      <div id="all-recs-wrap"></div>
+    </div>
+
+    <!-- ══ LOCATION ══ -->
+    <div class="page-section" id="sec-location">
+      <div class="card-header" style="margin-bottom:16px">
+        <div><div class="card-title">Location Data</div><div class="card-sub">GPS coordinates captured at punch-in and punch-out — admin view only</div></div>
+        <button class="btn btn-sm btn-primary" onclick="exportLocCSV()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export Location CSV
+        </button>
+      </div>
+      <div class="filters">
+        <select id="loc-f-emp" onchange="renderLocation()"><option value="">All employees</option></select>
+        <select id="loc-f-month" onchange="renderLocation()"><option value="">All months</option></select>
+      </div>
+      <div id="location-wrap"></div>
+    </div>
+
+    <!-- ══ HOURS ══ -->
+    <div class="page-section" id="sec-hours">
+      <div class="card-header" style="margin-bottom:16px">
+        <div><div class="card-title">Hours Report</div><div class="card-sub">Total, regular, and overtime hours per employee</div></div>
+        <div style="display:flex;gap:8px">
+          <select id="hr-month" onchange="renderHours()"><option value="">All time</option></select>
+          <button class="btn btn-sm btn-primary" onclick="exportHoursCSV()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export
+          </button>
+        </div>
+      </div>
+      <div id="hours-wrap"></div>
+    </div>
+
+    <!-- ══ EMPLOYEES ══ -->
+    <div class="page-section" id="sec-employees">
+      <div class="card-header" style="margin-bottom:16px">
+        <div><div class="card-title">Employee Directory</div><div class="card-sub">All registered employees</div></div>
+      </div>
+      <div id="emp-directory-wrap"></div>
+    </div>
+
+    <!-- ══ MANUAL TIMESHEET ══ -->
+    <div class="page-section" id="sec-manual-timesheet">
+      <div class="card-header" style="margin-bottom:16px">
+        <div>
+          <div class="card-title">Manual Timesheet</div>
+          <div class="card-sub">Import attendance from Excel for <strong>01 Jun 2026</strong> – <strong>22 Jun 2026</strong></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-primary" onclick="downloadManualTsTemplate()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download Excel Template
+          </button>
+          <button class="btn btn-sm" onclick="exportManualTsExcel()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Export Period Data
+          </button>
+        </div>
+      </div>
+
+      <div class="card" id="manual-ts-howto" style="margin-bottom:16px">
+        <div class="card-title" style="margin-bottom:10px">How to use</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7">
+          <ol style="margin:0;padding-left:18px">
+            <li>Click <strong>Download Excel Template</strong> — it includes every employee and each day from 01–22 Jun 2026.</li>
+            <li>Fill in <strong>Punch In</strong> and <strong>Punch Out</strong> times (e.g. <code>08:30</code> or <code>08:30:00</code>). Sundays are weekly off and are not included in the template.</li>
+            <li>Upload the completed file below. Rows without a punch-in time are skipped.</li>
+            <li>Existing records for the same employee and date will be updated.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="card" id="manual-ts-upload-section" style="margin-bottom:16px">
+        <div class="upload-zone" id="ts-upload-zone" onclick="document.getElementById('ts-file').click()">
+          <svg class="upload-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div style="font-size:14px;font-weight:600">Upload Excel file</div>
+          <p>Click or drag &amp; drop <strong>.xlsx</strong>, <strong>.xls</strong>, or <strong>.csv</strong></p>
+          <input type="file" id="ts-file" accept=".xlsx,.xls,.csv" onchange="handleTsFile(this.files[0])"/>
+        </div>
+        <div id="ts-import-preview" class="import-preview" style="display:none">
+          <div class="import-stat" id="ts-import-stats"></div>
+          <div id="ts-preview-wrap"></div>
+          <div style="display:flex;gap:8px;margin-top:14px">
+            <button class="btn btn-primary" onclick="confirmTsImport()">Import to system</button>
+            <button class="btn btn-ghost" onclick="clearTsPreview()">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-header" style="margin-bottom:12px">
+        <div><div class="card-title">Period records</div><div class="card-sub" id="manual-ts-count"></div></div>
+        <select id="manual-ts-emp" onchange="renderManualTs()" style="padding:7px 10px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-size:13px">
+          <option value="">All employees</option>
+        </select>
+      </div>
+      <div id="manual-ts-wrap"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══ EDIT MODAL ══ -->
+<div class="overlay" id="ov-edit">
+  <div class="modal">
+    <div class="modal-title">Edit Attendance Record</div>
+    <div class="modal-sub" id="edit-sub"></div>
+    <div class="row">
+      <div class="field"><label>Punch In</label><input type="text" id="edit-in" placeholder="e.g. 08:30:00"/></div>
+      <div class="field"><label>Punch Out</label><input type="text" id="edit-out" placeholder="e.g. 17:30:00"/></div>
+    </div>
+    <div class="field"><label>Status</label>
+      <select id="edit-status"><option>Completed</option><option>Recorded</option><option>In Progress</option><option>Punched In</option></select>
+    </div>
+    <div class="field"><label>Remarks</label><textarea id="edit-remarks"></textarea></div>
+    <div class="notice notice-warn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Admin modification. All changes are logged.
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DELETE CONFIRM ══ -->
+<div class="overlay" id="ov-delete">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title" style="color:var(--red)">Delete record?</div>
+    <div class="modal-sub">This action cannot be undone.</div>
+    <div id="del-info" style="margin:16px 0;padding:12px;background:var(--surface2);border-radius:var(--r);font-size:13px;color:var(--text2)"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>Delete
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+let allRecords=loadRecords();
+let editingId=null,deletingId=null;
+let tsPendingImport=null;
+
+function adminRecordActions(id){
+  if(!ADMIN_CAN_WRITE) return '';
+  return `<td style="white-space:nowrap">
+        <button class="btn btn-sm" style="margin-right:4px" onclick="openEdit(${id})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit
+        </button>
+        <button class="btn btn-sm" style="color:var(--red);border-color:var(--red)" onclick="openDelete(${id})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>Del
+        </button>
+      </td>`;
+}
+
+function initAdminAccessUI(){
+  if(!ADMIN_CAN_WRITE){
+    document.getElementById('admin-role-label').textContent='Test Viewer';
+    document.getElementById('admin-readonly-note').style.display='block';
+    const howTo=document.querySelector('#manual-ts-howto ol');
+    if(howTo) howTo.innerHTML='<li>You can view and export period records below.</li><li>Import and record changes are disabled for this account.</li>';
+    const uploadSection=document.getElementById('manual-ts-upload-section');
+    if(uploadSection) uploadSection.style.display='none';
+  }
+}
+
+/* ── Clock ── */
+function tick(){const d=new Date();document.getElementById('live-clock').textContent=fmtDate(d)+' · '+fmtTime(d);}
+setInterval(tick,1000);tick();
+
+/* ── Helpers ── */
+function openOv(id){document.getElementById(id).classList.add('open');}
+function closeAll(){document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open'));}
+function refreshAll(){allRecords=loadRecords();populateFilters();renderDash();renderAllRecs();renderLocation();renderHours();renderEmpDir();renderManualTs();}
+
+/* ── Section nav ── */
+function showSec(id,el){
+  document.querySelectorAll('.page-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  el.classList.add('active');
+  if(location.hash!=='#'+id) history.replaceState(null,'','#'+id);
+  if(id==='all-records') renderAllRecs();
+  if(id==='location')    renderLocation();
+  if(id==='hours')       renderHours();
+  if(id==='employees')   renderEmpDir();
+  if(id==='manual-timesheet') renderManualTs();
+}
+
+/* ── Populate filter dropdowns ── */
+function populateFilters(){
+  allRecords=loadRecords();
+  const empCodes=[...new Set([...Object.keys(EMPLOYEES), ...allRecords.map(r=>r.empCode)])].sort();
+  const months=[...new Set(allRecords.map(r=>{const m=MONTH_SHORT.find(m=>r.punchIn.includes(m));const y=r.punchIn.match(/\d{4}/)?.[0];return m&&y?`${m} ${y}`:null}).filter(Boolean))];
+  ['f-emp','loc-f-emp','manual-ts-emp'].forEach(id=>{
+    const s=document.getElementById(id);
+    if(!s) return;
+    s.innerHTML='<option value="">All employees</option>'+empCodes.map(c=>`<option value="${c}">${c} — ${escapeHtml(EMPLOYEES[c]?.name||'')}</option>`).join('');
+  });
+  ['f-month','loc-f-month','hr-month'].forEach(id=>{
+    const s=document.getElementById(id);
+    if(!s) return;
+    s.innerHTML=(id==='hr-month'?'<option value="">All time</option>':'<option value="">All months</option>')+months.map(m=>`<option>${escapeHtml(m)}</option>`).join('');
+  });
+}
+
+/* ── DASHBOARD ── */
+function renderDash(){
+  const today=fmtDate(new Date());
+  document.getElementById('dash-date').textContent='Today: '+today;
+  const todayRecs=allRecords.filter(r=>isRecordToday(r));
+  const totalMins=allRecords.reduce((s,r)=>{const m=calcHours(r.punchIn,r.punchOut);return s+(m||0);},0);
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat-card accent"><div class="stat-val">${Object.keys(EMPLOYEES).length}</div><div class="stat-label">Total employees</div></div>
+    <div class="stat-card green"><div class="stat-val">${todayRecs.length}</div><div class="stat-label">Check-ins today</div></div>
+    <div class="stat-card orange"><div class="stat-val">${allRecords.length}</div><div class="stat-label">Total records</div></div>
+    <div class="stat-card purple"><div class="stat-val">${decimalHours(totalMins)}</div><div class="stat-label">Total hours logged</div></div>`;
+
+  // Today checkins
+  const ci=document.getElementById('today-checkins');
+  if(!todayRecs.length){ci.innerHTML='<div style="color:var(--text3);font-size:13px">No check-ins recorded today.</div>';}
+  else{ci.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Category</th><th>In</th><th>Out</th><th>Hrs</th><th>Status</th></tr></thead><tbody>${todayRecs.map(r=>{const m=calcHours(r.punchIn,r.punchOut);const inT=r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn;const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'';return `<tr><td style="font-size:12px;white-space:nowrap"><b>${r.empName.split(' ')[0]}</b><br><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${r.empCode}</span></td><td>${catBadge(r.category)}</td><td style="font-family:var(--mono);font-size:11px">${inT}</td><td style="font-family:var(--mono);font-size:11px">${outT||'—'}</td><td>${m?`<span class="hours-pill" style="font-size:10px">${fmtHours(m)}</span>`:'—'}</td><td>${statusBadge(r.status)}</td></tr>`;}).join('')}</tbody></table></div>`;}
+
+  // Cat breakdown
+  const cats={Office:0,Procurement:0,Interview:0};
+  allRecords.forEach(r=>{if(cats[r.category]!==undefined)cats[r.category]++;});
+  const total=allRecords.length||1;
+  document.getElementById('cat-breakdown').innerHTML=Object.entries(cats).map(([cat,count])=>`
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">${catBadge(cat)}<span style="font-size:12px;color:var(--text2)">${count} records</span></div>
+      <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--accent);width:${Math.round(count/total*100)}%;border-radius:3px"></div></div>
+    </div>`).join('');
+
+  // Missing punchout
+  const missing=allRecords.filter(r=>r.status==='Punched In'||r.status==='In Progress');
+  const mp=document.getElementById('missing-punchout');
+  if(!missing.length){mp.innerHTML='<div class="notice notice-success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>All records have punch-out times.</div>';}
+  else{mp.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Dept</th><th>Category</th><th>Punch In</th><th>Status</th>${ADMIN_CAN_WRITE?'<th>Action</th>':''}</tr></thead><tbody>${missing.map(r=>`<tr><td style="font-size:12px;white-space:nowrap"><b>${r.empName}</b><br><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${r.empCode}</span></td><td style="font-size:11px;color:var(--text2)">${r.department}</td><td>${catBadge(r.category)}</td><td style="font-family:var(--mono);font-size:11px">${r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn}</td><td>${statusBadge(r.status)}</td>${ADMIN_CAN_WRITE?`<td><button class="btn btn-sm" onclick="openEdit(${r.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit</button></td>`:''}</tr>`).join('')}</tbody></table></div>`;}
+}
+
+/* ── ALL RECORDS ── */
+function renderAllRecs(){
+  allRecords=loadRecords();
+  const fEmp=document.getElementById('f-emp').value;
+  const fCat=document.getElementById('f-cat').value;
+  const fMonth=document.getElementById('f-month').value;
+  const fStatus=document.getElementById('f-status').value;
+  const fSearch=document.getElementById('f-search').value.toLowerCase();
+  let recs=allRecords.filter(r=>{
+    if(fEmp&&r.empCode!==fEmp)return false;
+    if(fCat&&r.category!==fCat)return false;
+    if(fMonth&&!r.punchIn.includes(fMonth))return false;
+    if(fStatus&&r.status!==fStatus)return false;
+    if(fSearch&&!r.empName.toLowerCase().includes(fSearch)&&!r.empCode.toLowerCase().includes(fSearch))return false;
+    return true;
+  });
+  document.getElementById('all-rec-count').textContent=recs.length+' record'+(recs.length!==1?'s':'');
+  const wrap=document.getElementById('all-recs-wrap');
+  if(!recs.length){wrap.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No records match the current filters.</p></div>';return;}
+  let html=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Emp Code</th><th>Name</th><th>Dept</th><th>Category</th><th>Punch In</th><th>Punch Out</th><th>Hours</th><th>Details</th><th>Remarks</th><th>Status</th>${ADMIN_CAN_WRITE?'<th>Actions</th>':''}</tr></thead><tbody>`;
+  recs.forEach(r=>{
+    const mins=calcHours(r.punchIn,r.punchOut);
+    let det='';
+    if(r.category==='Interview'&&r.extra)det=`<div style="font-size:10px;line-height:1.6;color:var(--text2)"><div>${r.extra.ivLocation||''}</div><div><b>Pos:</b>${r.extra.position||''}</div><div>${r.extra.candidateName||''}</div></div>`;
+    else if(r.category==='Procurement'&&r.extra&&r.extra.visits)det=`<div style="font-size:10px;line-height:1.6;color:var(--text2)">${r.extra.visits.map((v,i)=>`<div>V${i+1}: ${v.clientName}</div>`).join('')}</div>`;
+    const inT=r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn;
+    const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'';
+    const dateT=r.punchIn.includes('·')?r.punchIn.split('·')[0].trim():r.punchIn.substring(0,15);
+    html+=`<tr>
+      <td style="font-size:11px;white-space:nowrap;color:var(--text2)">${dateT}</td>
+      <td style="font-family:var(--mono);font-size:11px">${r.empCode}</td>
+      <td style="font-size:12px;white-space:nowrap;font-weight:500">${r.empName}</td>
+      <td style="font-size:11px;color:var(--text2)">${r.department}</td>
+      <td>${catBadge(r.category)}</td>
+      <td style="font-family:var(--mono);font-size:11px;white-space:nowrap">${inT}</td>
+      <td style="font-family:var(--mono);font-size:11px;white-space:nowrap">${outT||'<span style="color:var(--text3)">—</span>'}</td>
+      <td>${mins?`<span class="hours-pill" style="font-size:10px">${fmtHours(mins)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
+      <td style="min-width:120px">${det}</td>
+      <td style="font-size:11px;color:var(--text2);max-width:130px">${r.remarks?escapeHtml(r.remarks):'<span style="color:var(--text3)">—</span>'}</td>
+      <td>${statusBadge(r.status)}</td>
+      ${adminRecordActions(r.id)}
+    </tr>`;
+  });
+  html+='</tbody></table></div>';wrap.innerHTML=html;
+}
+
+/* ── LOCATION ── */
+function renderLocation(){
+  allRecords=loadRecords();
+  const fEmp=document.getElementById('loc-f-emp').value;
+  const fMonth=document.getElementById('loc-f-month').value;
+  let recs=allRecords.filter(r=>{
+    if(fEmp&&r.empCode!==fEmp)return false;
+    if(fMonth&&!r.punchIn.includes(fMonth))return false;
+    return true;
+  });
+  const wrap=document.getElementById('location-wrap');
+  if(!recs.length){wrap.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg><p>No location records found.</p></div>';return;}
+  let html=`<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Punch In Time</th><th>📍 Location In (Lat, Lng)</th><th>Accuracy In</th><th>Punch Out Time</th><th>📍 Location Out (Lat, Lng)</th><th>Accuracy Out</th><th>Source</th></tr></thead><tbody>`;
+  recs.forEach(r=>{
+    const li=r.locIn||{};const lo=r.locOut||{};
+    const hasLocIn=li.lat&&li.lat!=='N/A'&&li.lat!=='Denied'&&li.lat!=='Unavailable';
+    const hasLocOut=lo.lat&&lo.lat!=='N/A'&&lo.lat!=='Denied'&&lo.lat!=='Unavailable';
+    const locInStr=hasLocIn?li.lat+', '+li.lng:`<span style="color:var(--text3)">${li.lat||'—'}</span>`;
+    const locOutStr=hasLocOut?lo.lat+', '+lo.lng:`<span style="color:var(--text3)">${lo.lat||'—'}</span>`;
+    const inT=r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn;
+    const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'—';
+    const dateT=r.punchIn.includes('·')?r.punchIn.split('·')[0].trim():r.punchIn.substring(0,15);
+    const mapsIn=hasLocIn?`<a href="https://maps.google.com/?q=${li.lat},${li.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none;margin-left:4px">🗺️</a>`:'';
+    const mapsOut=hasLocOut?`<a href="https://maps.google.com/?q=${lo.lat},${lo.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none;margin-left:4px">🗺️</a>`:'';
+    html+=`<tr>
+      <td style="font-size:12px;white-space:nowrap"><b>${r.empName.split(' ')[0]}</b> <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${r.empCode}</span></td>
+      <td style="font-size:11px;color:var(--text2);white-space:nowrap">${dateT}</td>
+      <td>${catBadge(r.category)}</td>
+      <td style="font-family:var(--mono);font-size:11px">${inT}</td>
+      <td class="loc-cell">${locInStr}${mapsIn}</td>
+      <td style="font-size:11px;color:var(--text3)">${li.acc||'—'}</td>
+      <td style="font-family:var(--mono);font-size:11px">${outT}</td>
+      <td class="loc-cell out">${locOutStr}${mapsOut}</td>
+      <td style="font-size:11px;color:var(--text3)">${lo.acc||'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${li.src||'—'}</td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';wrap.innerHTML=html;
+}
+
+/* ── HOURS REPORT ── */
+function renderHours(){
+  allRecords=loadRecords();
+  const fMonth=document.getElementById('hr-month').value;
+  const recs=allRecords.filter(r=>!fMonth||r.punchIn.includes(fMonth));
+  const empMap={};
+  recs.forEach(r=>{
+    if(!empMap[r.empCode])empMap[r.empCode]={name:r.empName,dept:r.department,days:0,totalMins:0,otMins:0,cats:{Office:0,Procurement:0,Interview:0}};
+    const m=calcHours(r.punchIn,r.punchOut);
+    if(m){empMap[r.empCode].totalMins+=m;empMap[r.empCode].days++;if(m>480)empMap[r.empCode].otMins+=m-480;}
+    if(empMap[r.empCode].cats[r.category]!==undefined)empMap[r.empCode].cats[r.category]++;
+  });
+  const wrap=document.getElementById('hours-wrap');
+  if(!Object.keys(empMap).length){wrap.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No hours data for the selected period.</p></div>';return;}
+  let html=`<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Department</th><th>Days</th><th>Total Hours</th><th>Regular (&le;8/day)</th><th>Overtime (&gt;8/day)</th><th>Avg Hrs/Day</th><th>Office</th><th>Procurement</th><th>Interview</th></tr></thead><tbody>`;
+  Object.entries(empMap).forEach(([code,d])=>{
+    const regMins=Math.max(0,d.totalMins-d.otMins);
+    html+=`<tr>
+      <td style="font-size:12px;white-space:nowrap"><b>${d.name}</b><br><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${code}</span></td>
+      <td style="font-size:11px;color:var(--text2)">${d.dept}</td>
+      <td style="text-align:center;font-weight:600">${d.days}</td>
+      <td><span class="hours-pill">${fmtHours(d.totalMins)}</span><div style="font-size:10px;color:var(--text3);margin-top:2px">${decimalHours(d.totalMins)} hrs</div></td>
+      <td style="font-size:12px;color:var(--green)">${fmtHours(regMins)}</td>
+      <td style="font-size:12px;color:${d.otMins>0?'var(--orange)':'var(--text3)'}">${d.otMins>0?fmtHours(d.otMins):'—'}</td>
+      <td style="font-size:12px;color:var(--text2)">${d.days>0?fmtHours(Math.round(d.totalMins/d.days)):'—'}</td>
+      <td style="text-align:center">${d.cats.Office}</td>
+      <td style="text-align:center">${d.cats.Procurement}</td>
+      <td style="text-align:center">${d.cats.Interview}</td>
+    </tr>`;
+  });
+  // Totals
+  const tot=Object.values(empMap).reduce((a,d)=>({days:a.days+d.days,totalMins:a.totalMins+d.totalMins,otMins:a.otMins+d.otMins}),{days:0,totalMins:0,otMins:0});
+  html+=`<tr style="background:var(--surface2);font-weight:600">
+    <td colspan="2" style="font-size:12px;color:var(--text2)">TOTALS</td>
+    <td style="text-align:center">${tot.days}</td>
+    <td><span class="hours-pill">${fmtHours(tot.totalMins)}</span></td>
+    <td style="font-size:12px;color:var(--green)">${fmtHours(Math.max(0,tot.totalMins-tot.otMins))}</td>
+    <td style="font-size:12px;color:var(--orange)">${fmtHours(tot.otMins)}</td>
+    <td colspan="4"></td>
+  </tr>`;
+  html+='</tbody></table></div>';wrap.innerHTML=html;
+}
+
+/* ── EMPLOYEES ── */
+function renderEmpDir(){
+  let html=`<div class="table-wrap"><table><thead><tr><th>Code</th><th>Name</th><th>Designation</th><th>Department</th><th>Status</th><th>Total Records</th><th>Total Hours</th></tr></thead><tbody>`;
+  Object.entries(EMPLOYEES).forEach(([code,emp])=>{
+    const recs=allRecords.filter(r=>r.empCode===code);
+    const mins=recs.reduce((s,r)=>{const m=calcHours(r.punchIn,r.punchOut);return s+(m||0);},0);
+    html+=`<tr>
+      <td style="font-family:var(--mono);font-size:12px">${code}</td>
+      <td style="font-weight:500">${emp.name}</td>
+      <td style="font-size:12px;color:var(--text2)">${emp.desig}</td>
+      <td style="font-size:12px;color:var(--text2)">${emp.dept}</td>
+      <td><span class="badge ${emp.status==='Active'?'badge-green':'badge-red'}">${emp.status}</span></td>
+      <td style="text-align:center">${recs.length}</td>
+      <td>${mins?`<span class="hours-pill" style="font-size:11px">${fmtHours(mins)}</span>`:'—'}</td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';
+  document.getElementById('emp-directory-wrap').innerHTML=html;
+}
+
+/* ── EDIT ── */
+function openEdit(id){
+  if(!requireAdminWrite('edit records')) return;
+  editingId=id;
+  const rec=allRecords.find(r=>r.id===id);
+  if(!rec)return;
+  document.getElementById('edit-sub').textContent=`${rec.empName} · ${rec.empCode} · ${rec.category}`;
+  document.getElementById('edit-in').value=rec.punchIn.includes('·')?rec.punchIn.split('·')[1].trim():rec.punchIn;
+  document.getElementById('edit-out').value=rec.punchOut?(rec.punchOut.includes('·')?rec.punchOut.split('·')[1].trim():rec.punchOut):'';
+  document.getElementById('edit-status').value=rec.status;
+  document.getElementById('edit-remarks').value=rec.remarks||'';
+  openOv('ov-edit');
+}
+function saveEdit(){
+  if(!requireAdminWrite('edit records')) return;
+  const rec=allRecords.find(r=>r.id===editingId);
+  if(!rec)return;
+  const newIn=document.getElementById('edit-in').value.trim();
+  const newOut=document.getElementById('edit-out').value.trim();
+  if(newIn){
+    const datePart=rec.punchIn.includes('·')?rec.punchIn.split('·')[0].trim():fmtDate(new Date());
+    rec.punchIn=datePart+' · '+newIn;
+  }
+  if(newOut){
+    const datePart=rec.punchOut?(rec.punchOut.includes('·')?rec.punchOut.split('·')[0].trim():fmtDate(new Date())):fmtDate(new Date());
+    rec.punchOut=datePart+' · '+newOut;
+  } else rec.punchOut='';
+  rec.status=document.getElementById('edit-status').value;
+  rec.remarks=document.getElementById('edit-remarks').value.trim();
+  saveRecords(allRecords);closeAll();renderAllRecs();renderDash();
+}
+
+/* ── DELETE ── */
+function openDelete(id){
+  if(!requireAdminWrite('delete records')) return;
+  deletingId=id;
+  const rec=allRecords.find(r=>r.id===id);
+  if(!rec)return;
+  document.getElementById('del-info').innerHTML=`<b>${rec.empName}</b> (${rec.empCode})<br>${catBadge(rec.category)} · ${rec.punchIn.split('·')[0].trim()}`;
+  openOv('ov-delete');
+}
+function confirmDelete(){
+  if(!requireAdminWrite('delete records')) return;
+  allRecords=allRecords.filter(r=>r.id!==deletingId);
+  saveRecords(allRecords);closeAll();renderAllRecs();renderDash();
+}
+
+/* ── EXPORT CSVs ── */
+function exportAllCSV(){
+  allRecords=loadRecords();
+  if(!allRecords.length){alert('No records.');return;}
+  const hdr=['ID','EmpCode','Name','Designation','Department','Category','PunchIn','PunchOut','Hours(decimal)','Status','Remarks'];
+  const rows=allRecords.map(r=>{
+    const m=calcHours(r.punchIn,r.punchOut);
+    return [r.id,r.empCode,`"${r.empName}"`,`"${r.designation}"`,`"${r.department}"`,r.category,`"${r.punchIn}"`,`"${r.punchOut||''}"`,decimalHours(m),r.status,`"${(r.remarks||'').replace(/"/g,'""')}"`].join(',');
+  });
+  dl([hdr.join(','),...rows].join('\n'),'attendance_all_'+todayISO()+'.csv');
+}
+function exportLocCSV(){
+  allRecords=loadRecords();
+  const hdr=['EmpCode','Name','Category','Date','PunchInTime','LocIn_Lat','LocIn_Lng','AccuracyIn','PunchOutTime','LocOut_Lat','LocOut_Lng','AccuracyOut','Source'];
+  const rows=allRecords.map(r=>{
+    const li=r.locIn||{};const lo=r.locOut||{};
+    const inT=r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn;
+    const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'';
+    const dateT=r.punchIn.includes('·')?r.punchIn.split('·')[0].trim():'';
+    return [r.empCode,`"${r.empName}"`,r.category,`"${dateT}"`,inT,li.lat||'',li.lng||'',li.acc||'',outT,lo.lat||'',lo.lng||'',lo.acc||'',li.src||''].join(',');
+  });
+  dl([hdr.join(','),...rows].join('\n'),'location_data_'+todayISO()+'.csv');
+}
+function exportHoursCSV(){
+  allRecords=loadRecords();
+  const fMonth=document.getElementById('hr-month').value;
+  const recs=allRecords.filter(r=>!fMonth||r.punchIn.includes(fMonth));
+  const empMap={};
+  recs.forEach(r=>{
+    if(!empMap[r.empCode])empMap[r.empCode]={name:r.empName,dept:r.department,days:0,totalMins:0,otMins:0};
+    const m=calcHours(r.punchIn,r.punchOut);
+    if(m){empMap[r.empCode].totalMins+=m;empMap[r.empCode].days++;if(m>480)empMap[r.empCode].otMins+=m-480;}
+  });
+  const hdr=['EmpCode','Name','Department','Days','TotalHours','RegularHours','OvertimeHours','AvgHrsPerDay'];
+  const rows=Object.entries(empMap).map(([c,d])=>[c,`"${d.name}"`,`"${d.dept}"`,d.days,decimalHours(d.totalMins),decimalHours(Math.max(0,d.totalMins-d.otMins)),decimalHours(d.otMins),d.days>0?decimalHours(Math.round(d.totalMins/d.days)):'0'].join(','));
+  dl([hdr.join(','),...rows].join('\n'),'hours_report_'+todayISO()+'.csv');
+}
+function dl(csv,name){const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download=name;a.click();}
+
+/* ── MANUAL TIMESHEET ── */
+function manualTsDateList(){
+  const dates=[];
+  const [sy,sm,sd]=MANUAL_TS_RANGE.start.split('-').map(Number);
+  const [ey,em,ed]=MANUAL_TS_RANGE.end.split('-').map(Number);
+  const cur=new Date(sy,sm-1,sd),end=new Date(ey,em-1,ed);
+  while(cur<=end){
+    const iso=dateISOFromParts(cur.getFullYear(),cur.getMonth()+1,cur.getDate());
+    if(!isWeeklyOffDateISO(iso)) dates.push(iso);
+    cur.setDate(cur.getDate()+1);
+  }
+  return dates;
+}
+
+function downloadManualTsTemplate(){
+  if(typeof XLSX==='undefined'){alert('Excel library not loaded. Check your internet connection and refresh.');return;}
+  const rows=[];
+  const dates=manualTsDateList();
+  Object.keys(EMPLOYEES).forEach(code=>{
+    const emp=EMPLOYEES[code];
+    dates.forEach(dateISO=>{
+      rows.push({
+        Date:dateISO,
+        'Emp Code':code,
+        Name:emp.name,
+        Category:'Office',
+        'Punch In':'',
+        'Punch Out':'',
+        Remarks:'',
+        Status:'Completed'
+      });
+    });
+  });
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:10},{wch:28},{wch:12},{wch:10},{wch:10},{wch:20},{wch:12}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Timesheet Jun 2026');
+  XLSX.writeFile(wb,'CitiHomes_Timesheet_Jun01-22_2026.xlsx');
+}
+
+function exportManualTsExcel(){
+  if(typeof XLSX==='undefined'){alert('Excel library not loaded.');return;}
+  allRecords=loadRecords();
+  const recs=manualTsRecords(allRecords);
+  const rows=recs.map(r=>{
+    const dateISO=extractRecordDateISO(r)||'';
+    const inT=r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn;
+    const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'';
+    const m=calcHours(r.punchIn,r.punchOut);
+    return {
+      Date:dateISO,
+      'Emp Code':r.empCode,
+      Name:r.empName,
+      Category:r.category,
+      'Punch In':inT,
+      'Punch Out':outT,
+      Hours:decimalHours(m),
+      Remarks:r.remarks||'',
+      Status:r.status
+    };
+  });
+  if(!rows.length){
+    alert('No records in the manual timesheet period yet. Download the template and import data first.');
+    return;
+  }
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Timesheet Jun 2026');
+  XLSX.writeFile(wb,'CitiHomes_Timesheet_Export_'+todayISO()+'.xlsx');
+}
+
+function normalizeHeaderKey(h){
+  return String(h||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+
+function mapTsRow(row){
+  const map={};
+  Object.keys(row).forEach(k=>{map[normalizeHeaderKey(k)]=row[k];});
+  const get=(...keys)=>{
+    for(const k of keys){if(map[k]!==undefined&&map[k]!==null&&String(map[k]).trim()!=='')return String(map[k]).trim();}
+    return '';
+  };
+  return {
+    date:get('date'),
+    empCode:get('empcode','code','employeecode'),
+    name:get('name','employeename'),
+    category:get('category','cat')||'Office',
+    punchIn:get('punchin','in','timein','punchintime'),
+    punchOut:get('punchout','out','timeout','punchouttime'),
+    remarks:get('remarks','remark','notes'),
+    status:get('status')||'Completed'
+  };
+}
+
+function parseTsRows(sheetRows){
+  const valid=[],skipped=[],errors=[];
+  sheetRows.forEach((row,idx)=>{
+    const r=mapTsRow(row);
+    const line=idx+2;
+    if(!r.date&&!r.empCode&&!r.punchIn) return;
+    const dateISO=parseFlexibleDate(r.date);
+    if(!dateISO){errors.push(`Row ${line}: invalid date "${r.date}"`);return;}
+    if(!isInManualTsRange(dateISO)){skipped.push(`Row ${line}: date ${dateISO} outside 01 Jun – 22 Jun 2026`);return;}
+    if(isWeeklyOffDateISO(dateISO)){skipped.push(`Row ${line}: ${dateISO} is Sunday (weekly off)`);return;}
+    const code=r.empCode.toUpperCase();
+    const emp=EMPLOYEES[code];
+    if(!emp){errors.push(`Row ${line}: unknown employee code "${code}"`);return;}
+    if(!r.punchIn){skipped.push(`Row ${line}: no punch-in — skipped`);return;}
+    const cats=['Office','Procurement','Interview'];
+    const cat=cats.find(c=>c.toLowerCase()===r.category.toLowerCase())||'Office';
+    const punchIn=buildPunchFromDateAndTime(dateISO,r.punchIn);
+    const punchOut=r.punchOut?buildPunchFromDateAndTime(dateISO,r.punchOut):'';
+    const statuses=['Completed','Recorded','In Progress','Punched In'];
+    let status=statuses.find(s=>s.toLowerCase()===r.status.toLowerCase())||'Completed';
+    if(punchOut&&status==='Punched In') status='Completed';
+    if(!punchOut&&status==='Completed') status='Punched In';
+    valid.push({
+      dateISO,empCode:code,empName:emp.name,designation:emp.desig,department:emp.dept,
+      category:cat,punchIn,punchOut,remarks:r.remarks,status,
+      hours:calcHours(punchIn,punchOut)
+    });
+  });
+  return {valid,skipped,errors};
+}
+
+function handleTsFile(file){
+  if(!requireAdminWrite('import timesheets')) return;
+  if(!file) return;
+  if(typeof XLSX==='undefined'){alert('Excel library not loaded.');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const sheet=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(sheet,{defval:'',raw:false,dateNF:'yyyy-mm-dd'});
+      if(!rows.length){alert('No data found in the file.');return;}
+      const parsed=parseTsRows(rows);
+      tsPendingImport=parsed.valid;
+      showTsPreview(parsed);
+    }catch(err){
+      alert('Could not read file: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showTsPreview(parsed){
+  const box=document.getElementById('ts-import-preview');
+  const stats=document.getElementById('ts-import-stats');
+  box.style.display='block';
+  stats.innerHTML=`
+    <span><b>${parsed.valid.length}</b> rows ready</span>
+    <span><b>${parsed.skipped.length}</b> skipped</span>
+    <span><b>${parsed.errors.length}</b> errors</span>`;
+  const wrap=document.getElementById('ts-preview-wrap');
+  if(parsed.errors.length){
+    wrap.innerHTML=`<div class="notice notice-warn" style="margin-bottom:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${parsed.errors.slice(0,8).join('<br>')}${parsed.errors.length>8?'<br>…and more':''}</div>`;
+  }else wrap.innerHTML='';
+  if(!parsed.valid.length){
+    wrap.innerHTML+=`<div class="empty-state" style="padding:24px"><p>No valid rows to import.</p></div>`;
+    return;
+  }
+  let html=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Code</th><th>Name</th><th>Category</th><th>In</th><th>Out</th><th>Hours</th><th>Status</th></tr></thead><tbody>`;
+  parsed.valid.slice(0,50).forEach(r=>{
+    const inT=r.punchIn.split('·')[1]?.trim()||'';
+    const outT=r.punchOut?r.punchOut.split('·')[1]?.trim():'—';
+    html+=`<tr>
+      <td style="font-size:11px">${r.dateISO}</td>
+      <td style="font-family:var(--mono);font-size:11px">${r.empCode}</td>
+      <td style="font-size:12px">${r.empName}</td>
+      <td>${catBadge(r.category)}</td>
+      <td style="font-family:var(--mono);font-size:11px">${inT}</td>
+      <td style="font-family:var(--mono);font-size:11px">${outT}</td>
+      <td>${r.hours?`<span class="hours-pill" style="font-size:10px">${fmtHours(r.hours)}</span>`:'—'}</td>
+      <td>${statusBadge(r.status)}</td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';
+  if(parsed.valid.length>50) html+=`<p style="font-size:12px;color:var(--text3);margin-top:8px">Showing first 50 of ${parsed.valid.length} rows.</p>`;
+  wrap.innerHTML+=html;
+}
+
+function clearTsPreview(){
+  tsPendingImport=null;
+  document.getElementById('ts-file').value='';
+  document.getElementById('ts-import-preview').style.display='none';
+}
+
+function confirmTsImport(){
+  if(!requireAdminWrite('import timesheets')) return;
+  if(!tsPendingImport||!tsPendingImport.length){alert('Nothing to import.');return;}
+  allRecords=loadRecords();
+  let added=0,updated=0;
+  tsPendingImport.forEach(row=>{
+    const idx=allRecords.findIndex(r=>r.empCode===row.empCode&&extractRecordDateISO(r)===row.dateISO);
+    if(idx>=0){
+      const rec=allRecords[idx];
+      rec.punchIn=row.punchIn;
+      rec.punchOut=row.punchOut;
+      rec.category=row.category;
+      rec.status=row.status;
+      rec.remarks=row.remarks;
+      rec.source='manual-timesheet';
+      updated++;
+    }else{
+      allRecords.unshift({
+        id:nextRecordId(allRecords),
+        empCode:row.empCode,empName:row.empName,designation:row.designation,department:row.department,
+        category:row.category,punchIn:row.punchIn,punchOut:row.punchOut,remarks:row.remarks,
+        locIn:null,locOut:null,status:row.status,extra:{},source:'manual-timesheet'
+      });
+      added++;
+    }
+  });
+  saveRecords(allRecords);
+  clearTsPreview();
+  populateFilters();
+  renderManualTs();
+  renderDash();
+  alert(`Import complete: ${added} added, ${updated} updated.`);
+}
+
+function renderManualTs(){
+  allRecords=loadRecords();
+  const fEmp=document.getElementById('manual-ts-emp').value;
+  let recs=manualTsRecords(allRecords);
+  if(fEmp) recs=recs.filter(r=>r.empCode===fEmp);
+  recs.sort((a,b)=>{
+    const da=extractRecordDateISO(a)||'',db=extractRecordDateISO(b)||'';
+    if(da!==db) return da<db?-1:1;
+    return a.empCode.localeCompare(b.empCode);
+  });
+  document.getElementById('manual-ts-count').textContent=recs.length+' record'+(recs.length!==1?'s':'')+' in period';
+  const wrap=document.getElementById('manual-ts-wrap');
+  if(!recs.length){
+    wrap.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No manual timesheet records yet. Download the template, fill in times, and upload.</p></div>';
+    return;
+  }
+  let html=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Code</th><th>Name</th><th>Category</th><th>Punch In</th><th>Punch Out</th><th>Hours</th><th>Remarks</th><th>Status</th><th>Source</th></tr></thead><tbody>`;
+  recs.forEach(r=>{
+    const dateISO=extractRecordDateISO(r)||'—';
+    const inT=r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn;
+    const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'—';
+    const mins=calcHours(r.punchIn,r.punchOut);
+    html+=`<tr>
+      <td style="font-size:11px;white-space:nowrap">${dateISO}</td>
+      <td style="font-family:var(--mono);font-size:11px">${r.empCode}</td>
+      <td style="font-size:12px;font-weight:500">${r.empName}</td>
+      <td>${catBadge(r.category)}</td>
+      <td style="font-family:var(--mono);font-size:11px">${inT}</td>
+      <td style="font-family:var(--mono);font-size:11px">${outT}</td>
+      <td>${mins?`<span class="hours-pill" style="font-size:10px">${fmtHours(mins)}</span>`:'—'}</td>
+      <td style="font-size:11px;color:var(--text2);max-width:120px">${r.remarks||'—'}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td style="font-size:10px;color:var(--text3)">${r.source||'portal'}</td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';
+  wrap.innerHTML=html;
+}
+
+(function initTsUploadDrag(){
+  const zone=document.getElementById('ts-upload-zone');
+  if(!zone) return;
+  ['dragenter','dragover'].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.add('drag-over');}));
+  ['dragleave','drop'].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.remove('drag-over');}));
+  zone.addEventListener('drop',e=>{
+    const file=e.dataTransfer?.files?.[0];
+    if(file) handleTsFile(file);
+  });
+})();
+
+/* ── Init ── */
+initAdminAccessUI();
+populateFilters();
+renderDash();
+document.getElementById('dash-date').textContent='Today: '+fmtDate(new Date());
+initHashRouting(['overview','all-records','location','hours','employees','manual-timesheet'], showSec, 'overview');
+</script>
+</body>
+</html>
