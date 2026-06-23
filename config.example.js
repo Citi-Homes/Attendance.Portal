@@ -8,7 +8,7 @@ window.ATT_CONFIG = {
   sessionSecret: "REPLACE_WITH_RANDOM_64_CHAR_HEX",
 
   admin: {
-    user: "admin",
+    user: "admin@citihomes.ae",
     passHash: "REPLACE_WITH_SHA256_OF_ADMIN_PASSWORD"
   },
 
