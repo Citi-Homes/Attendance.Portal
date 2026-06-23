@@ -3,7 +3,7 @@ window.ATT_CONFIG = {
   sessionSecret: "ab97e7c218f1ddfb2059fd9a90778820e96facb2236c4aca834c9af46d8eff0c",
 
   admin: {
-    user: "admin@citihomes.ae",
+    user: "admin@citihomes.ae","umer@citihomes.ae",
     passHash: "48724d2be291209747f932bb6046b979eceec14e569403cff13add133c3c0c2f"
   },
 
