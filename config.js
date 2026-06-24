@@ -1,5 +1,27 @@
 const SUPABASE_URL = "https://mnfrbyzdubsgnhxrzuxx.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1uZnJieXpkdWJzZ25oeHJ6dXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyODUxMjQsImV4cCI6MjA5Nzg2MTEyNH0.XCVsDFy6-DDBEh847kH2AxfsCaxiFVFK-JZnxo6xPSI";
+async function markAttendance(employeeCode, status) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/attendance`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Prefer": "return=minimal"
+    },
+    body: JSON.stringify({
+      employee_code: employeeCode,
+      status: status
+    })
+  });
+
+  if (!res.ok) {
+    console.error("Failed to save attendance:", await res.text());
+    return false;
+  }
+
+  return true;
+}
 window.ATT_CONFIG = {
   sessionSecret: "ab97e7c218f1ddfb2059fd9a90778820e96facb2236c4aca834c9af46d8eff0c",
 
