@@ -1,0 +1,17 @@
+{
+  "name": "citi-homes-attendance-portal",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes serve . -p 8080",
+    "setup:db": "node scripts/setup-database.mjs",
+    "fix:permissions": "node scripts/apply-fix-permissions.mjs",
+    "migrate:record-date": "node scripts/apply-record-date.mjs",
+    "verify": "node scripts/verify-api.mjs",
+    "build:config": "node scripts/build-config.mjs",
+    "build:pages": "node scripts/build-pages.mjs",
+    "prepare:github-secrets": "node scripts/prepare-github-secrets.mjs"
+  },
+  "devDependencies": {
+    "pg": "^8.16.3"
+  }
+}

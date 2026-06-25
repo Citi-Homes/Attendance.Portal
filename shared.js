@@ -53,11 +53,36 @@ const EMPLOYEES = {
 };
 
 // ── Routes & auth ────────────────────────────────────────────────────────────
-const ROUTES = {
+const ROUTE_FILES = {
   login: "index.html",
   employee: "employee.html",
   admin: "admin.html"
 };
+
+function isLocalDevHost() {
+  const h = location.hostname;
+  return h === "localhost" || h === "127.0.0.1" || h === "";
+}
+
+function getAppBaseUrl() {
+  const cfg = getConfig();
+  if (cfg && cfg.appUrl) {
+    return String(cfg.appUrl).replace(/\/?$/, "/");
+  }
+  const path = location.pathname || "/";
+  const marker = "/Attendance.Portal";
+  const i = path.indexOf(marker);
+  if (i >= 0) return location.origin + path.slice(0, i + marker.length) + "/";
+  return location.origin + (path.endsWith("/") ? path : path.replace(/\/[^/]*$/, "/"));
+}
+
+function routeFor(key) {
+  const file = ROUTE_FILES[key] || key;
+  if (isLocalDevHost()) return file;
+  return getAppBaseUrl() + file;
+}
+
+const ROUTES = ROUTE_FILES;
 
 const SESSION_KEY = "att_session_v4";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
@@ -73,6 +98,9 @@ function ensureConfig() {
   const cfg = getConfig();
   if (!cfg || !cfg.sessionSecret) {
     throw new Error("Missing config.js — copy config.example.js to config.js and set credentials.");
+  }
+  if (!isLocalDevHost() && (!cfg.supabaseUrl || !cfg.supabaseAnonKey)) {
+    throw new Error("Supabase is required on the live site. Redeploy with config.production.js or GitHub secrets.");
   }
   return cfg;
 }
@@ -160,11 +188,11 @@ async function verifyAdminCredentials(user, password) {
 }
 
 function navigateTo(route) {
-  window.location.href = ROUTES[route] || route;
+  window.location.href = routeFor(route);
 }
 
 function navigateReplace(route) {
-  window.location.replace(ROUTES[route] || route);
+  window.location.replace(routeFor(route));
 }
 
 function parseSession(raw) {
@@ -297,7 +325,10 @@ function fmtDT(d){return fmtDate(d)+' · '+fmtTime(d);}
 function todayISO(){const d=new Date();return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;}
 function todayDisplayKey(){const d=new Date();return `${p2(d.getDate())} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;}
 function isRecordToday(rec){
-  if(!rec||!rec.punchIn) return false;
+  if(!rec) return false;
+  const iso=extractRecordDateISO(rec);
+  if(iso) return iso===todayISO();
+  if(!rec.punchIn) return false;
   const punchIn=rec.punchIn;
   if(punchIn.includes(todayISO())) return true;
   return punchIn.includes(todayDisplayKey());
@@ -343,10 +374,297 @@ function decimalHours(mins){
   return (mins/60).toFixed(2);
 }
 
-// ── Records storage ──────────────────────────────────────────────────────────
-const REC_KEY='att_v3_records';
-function loadRecords(){try{return JSON.parse(localStorage.getItem(REC_KEY)||'[]');}catch{return[];}}
-function saveRecords(recs){localStorage.setItem(REC_KEY,JSON.stringify(recs));}
+// ── Records storage (Supabase API + local fallback) ───────────────────────────
+const REC_KEY = 'att_v3_records';
+const REC_TABLE = 'attendance_records';
+let _recordsCache = null;
+let _recordDateColumn = null;
+
+function supabaseConfig() {
+  const cfg = getConfig();
+  if (!cfg || !cfg.supabaseUrl || !cfg.supabaseAnonKey) return null;
+  return { url: cfg.supabaseUrl.replace(/\/$/, ''), key: cfg.supabaseAnonKey };
+}
+
+function sbHeaders(extra) {
+  const sb = supabaseConfig();
+  if (!sb) throw new Error('Supabase not configured in config.js');
+  return Object.assign({
+    'Content-Type': 'application/json',
+    'apikey': sb.key,
+    'Authorization': 'Bearer ' + sb.key
+  }, extra || {});
+}
+
+function recordToRow(rec) {
+  ensureRecordDates(rec);
+  const row = {
+    id: rec.id,
+    emp_code: rec.empCode,
+    emp_name: rec.empName,
+    designation: rec.designation || '',
+    department: rec.department || '',
+    category: rec.category,
+    punch_in: rec.punchIn,
+    punch_out: rec.punchOut || '',
+    remarks: rec.remarks || '',
+    loc_in: rec.locIn || null,
+    loc_out: rec.locOut || null,
+    status: rec.status,
+    extra: rec.extra || {},
+    source: rec.source || 'portal'
+  };
+  if (_recordDateColumn !== false) {
+    row.record_date = rec.recordDate || extractRecordDateISO(rec) || todayISO();
+  }
+  return row;
+}
+
+function rowToRecord(row) {
+  const rec = {
+    id: Number(row.id),
+    empCode: row.emp_code,
+    empName: row.emp_name,
+    designation: row.designation || '',
+    department: row.department || '',
+    category: row.category,
+    punchIn: row.punch_in,
+    punchOut: row.punch_out || '',
+    remarks: row.remarks || '',
+    locIn: row.loc_in || null,
+    locOut: row.loc_out || null,
+    status: row.status,
+    extra: row.extra || {},
+    source: row.source || 'portal',
+    recordDate: row.record_date || null
+  };
+  ensureRecordDates(rec);
+  return rec;
+}
+
+function loadRecordsLocal() {
+  try { return JSON.parse(localStorage.getItem(REC_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveRecordsLocal(recs) {
+  localStorage.setItem(REC_KEY, JSON.stringify(recs));
+}
+
+function loadRecords() {
+  return _recordsCache ? _recordsCache.slice() : loadRecordsLocal();
+}
+
+function saveRecords(recs) {
+  _recordsCache = recs.slice();
+  saveRecordsLocal(recs);
+}
+
+function isRemoteStorageEnabled() {
+  return !!supabaseConfig();
+}
+
+function requireSupabaseStorage() {
+  if (!supabaseConfig() && !isLocalDevHost()) {
+    throw new Error("Supabase is required for the live site. Check config.js on GitHub Pages deploy.");
+  }
+}
+
+async function loadRecordsAsync() {
+  requireSupabaseStorage();
+  const sb = supabaseConfig();
+  if (!sb) {
+    _recordsCache = loadRecordsLocal();
+    return _recordsCache.slice();
+  }
+  await probeRecordDateColumn();
+  const res = await fetch(sb.url + '/rest/v1/' + REC_TABLE + '?select=*&order=id.desc', {
+    headers: sbHeaders()
+  });
+  if (!res.ok) throw new Error('Failed to load records: ' + (await res.text()));
+  _recordsCache = (await res.json()).map(rowToRecord);
+  return _recordsCache.slice();
+}
+
+async function upsertRecordAsync(rec) {
+  requireSupabaseStorage();
+  const sb = supabaseConfig();
+  if (!sb) {
+    const recs = loadRecordsLocal();
+    const idx = recs.findIndex(r => r.id === rec.id);
+    if (idx >= 0) recs[idx] = rec; else recs.unshift(rec);
+    saveRecords(recs);
+    return rec;
+  }
+  await probeRecordDateColumn();
+  const res = await fetch(sb.url + '/rest/v1/' + REC_TABLE, {
+    method: 'POST',
+    headers: sbHeaders({ Prefer: 'resolution=merge-duplicates,return=representation' }),
+    body: JSON.stringify(recordToRow(rec))
+  });
+  if (!res.ok) throw new Error('Failed to save record: ' + (await res.text()));
+  const saved = rowToRecord((await res.json())[0]);
+  if (_recordsCache) {
+    const idx = _recordsCache.findIndex(r => r.id === saved.id);
+    if (idx >= 0) _recordsCache[idx] = saved; else _recordsCache.unshift(saved);
+  }
+  return saved;
+}
+
+async function upsertRecordsBulkAsync(recs) {
+  if (!recs.length) return;
+  requireSupabaseStorage();
+  const sb = supabaseConfig();
+  if (!sb) {
+    let all = loadRecordsLocal();
+    recs.forEach(rec => {
+      const idx = all.findIndex(r => r.id === rec.id);
+      if (idx >= 0) all[idx] = rec; else all.unshift(rec);
+    });
+    saveRecords(all);
+    return;
+  }
+  await probeRecordDateColumn();
+  const res = await fetch(sb.url + '/rest/v1/' + REC_TABLE, {
+    method: 'POST',
+    headers: sbHeaders({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify(recs.map(recordToRow))
+  });
+  if (!res.ok) throw new Error('Failed to save records: ' + (await res.text()));
+  _recordsCache = null;
+}
+
+async function deleteRecordAsync(id) {
+  requireSupabaseStorage();
+  const sb = supabaseConfig();
+  if (!sb) {
+    const recs = loadRecordsLocal().filter(r => r.id !== id);
+    saveRecords(recs);
+    return;
+  }
+  const res = await fetch(sb.url + '/rest/v1/' + REC_TABLE + '?id=eq.' + id, {
+    method: 'DELETE',
+    headers: sbHeaders()
+  });
+  if (!res.ok) throw new Error('Failed to delete record: ' + (await res.text()));
+  if (_recordsCache) _recordsCache = _recordsCache.filter(r => r.id !== id);
+}
+
+async function persistRecord(rec) {
+  ensureRecordDates(rec);
+  await upsertRecordAsync(rec);
+  if (_recordsCache) {
+    const idx = _recordsCache.findIndex(r => r.id === rec.id);
+    if (idx >= 0) _recordsCache[idx] = rec;
+    else _recordsCache.unshift(rec);
+  }
+}
+
+function notifySaveError(err) {
+  console.error(err);
+  const msg = String(err && err.message ? err.message : err);
+  if (msg.includes('42501') || msg.includes('permission denied')) {
+    alert('Database permissions missing.\n\nRun supabase-fix-permissions.sql in Supabase SQL Editor\n(or click "Copy permissions fix SQL" on setup.html).');
+    return;
+  }
+  if (msg.includes('attendance_records') && (msg.includes('does not exist') || msg.includes('PGRST205') || msg.includes('404'))) {
+    alert('Cloud database is not set up yet.\n\nAsk your administrator to run:\n  npm run setup:db\n\nOr paste supabase-setup.sql into Supabase → SQL Editor.');
+    return;
+  }
+  alert('Could not save to the server. Check your internet connection and try again.\n\n' + msg);
+}
+
+async function probeRecordDateColumn() {
+  if (_recordDateColumn !== null) return _recordDateColumn;
+  const sb = supabaseConfig();
+  if (!sb) {
+    _recordDateColumn = false;
+    return false;
+  }
+  try {
+    const res = await fetch(sb.url + '/rest/v1/' + REC_TABLE + '?select=record_date&limit=1', {
+      headers: sbHeaders()
+    });
+    _recordDateColumn = res.ok;
+  } catch (_) {
+    _recordDateColumn = false;
+  }
+  return _recordDateColumn;
+}
+
+async function checkRemoteStorageHealth() {
+  const sb = supabaseConfig();
+  if (!sb) return { ok: false, reason: 'not_configured' };
+  try {
+    const res = await fetch(sb.url + '/rest/v1/' + REC_TABLE + '?select=id&limit=1', { headers: sbHeaders() });
+    if (res.ok) {
+      const hasRecordDate = await probeRecordDateColumn();
+      return { ok: true, recordDateColumn: hasRecordDate };
+    }
+    const body = await res.text();
+    if (body.includes('does not exist') || body.includes('PGRST205') || res.status === 404) {
+      return { ok: false, reason: 'table_missing' };
+    }
+    if (body.includes('42501') || body.includes('permission denied')) {
+      return { ok: false, reason: 'permissions_missing' };
+    }
+    return { ok: false, reason: 'error', detail: body };
+  } catch (e) {
+    return { ok: false, reason: 'network', detail: e.message };
+  }
+}
+
+async function migrateLocalRecordsToCloud(options) {
+  const sb = supabaseConfig();
+  if (!sb) return { migrated: 0, skipped: true };
+  const local = loadRecordsLocal();
+  if (!local.length) return { migrated: 0, skipped: true };
+
+  const remote = await loadRecordsAsync();
+  if (remote.length > 0) return { migrated: 0, skipped: true, reason: 'remote_has_data' };
+
+  const ask = options && options.silent ? true : confirm(
+    'Found ' + local.length + ' attendance record(s) saved only on this device.\n\nUpload them to the cloud now?'
+  );
+  if (!ask) return { migrated: 0, cancelled: true };
+
+  await upsertRecordsBulkAsync(local);
+  localStorage.removeItem(REC_KEY);
+  _recordsCache = null;
+  return { migrated: local.length };
+}
+
+function setAppLoading(on, message) {
+  const el = document.getElementById('app-loading');
+  if (!el) return;
+  const msg = el.querySelector('.app-loading-msg');
+  if (msg && message) msg.textContent = message;
+  el.classList.toggle('open', !!on);
+}
+
+function showStorageBanner(health) {
+  const el = document.getElementById('storage-banner');
+  if (!el || !health) return;
+  if (health.ok && health.recordDateColumn === false) {
+    el.innerHTML = '<span>For reliable monthly reports, run <code>supabase-add-record-date.sql</code> in Supabase SQL Editor (see setup page).</span>';
+    el.className = 'storage-banner storage-banner-warn open';
+    return;
+  }
+  if (health.ok) return;
+  if (health.reason === 'table_missing') {
+    el.innerHTML = '<span>Cloud database not ready — run <code>npm run setup:db</code> or execute <code>supabase-setup.sql</code> in Supabase SQL Editor.</span>';
+    el.className = 'storage-banner storage-banner-warn open';
+  } else if (health.reason === 'permissions_missing') {
+    el.innerHTML = '<span>Database permissions missing — run <code>supabase-fix-permissions.sql</code> in Supabase SQL Editor (see setup.html).</span>';
+    el.className = 'storage-banner storage-banner-warn open';
+  } else if (health.reason === 'not_configured') {
+    el.innerHTML = '<span>Cloud storage not configured — copy <code>config.example.js</code> to <code>config.js</code> and add Supabase keys.</span>';
+    el.className = 'storage-banner storage-banner-warn open';
+  } else {
+    el.innerHTML = '<span>Could not reach cloud storage. Check internet connection and refresh.</span>';
+    el.className = 'storage-banner storage-banner-warn open';
+  }
+}
 
 // ── Manual timesheet (admin Excel import) ────────────────────────────────────
 const MANUAL_TS_RANGE={start:'2026-06-01',end:'2026-06-22'};
@@ -416,7 +734,9 @@ function buildPunchFromDateAndTime(dateISO,timeStr){
 }
 
 function extractRecordDateISO(rec){
-  if(!rec||!rec.punchIn) return null;
+  if(!rec) return null;
+  if(rec.recordDate && /^\d{4}-\d{2}-\d{2}$/.test(rec.recordDate)) return rec.recordDate;
+  if(!rec.punchIn) return null;
   const punchIn=rec.punchIn;
   const iso=punchIn.match(/\d{4}-\d{2}-\d{2}/);
   if(iso) return iso[0];
@@ -426,6 +746,64 @@ function extractRecordDateISO(rec){
     if(idx>=0) return dateISOFromParts(parseInt(named[3],10),idx+1,parseInt(named[1],10));
   }
   return null;
+}
+
+function ensureRecordDates(rec){
+  if(!rec) return rec;
+  rec.recordDate=extractRecordDateISO(rec)||todayISO();
+  return rec;
+}
+
+function recordMonthKey(rec){
+  const iso=extractRecordDateISO(rec);
+  if(!iso) return null;
+  const [y,m]=iso.split('-').map(Number);
+  if(m<1||m>12) return null;
+  return MONTH_SHORT[m-1]+' '+y;
+}
+
+function monthKeySortVal(key){
+  if(!key) return 0;
+  const parts=key.split(' ');
+  if(parts.length<2) return 0;
+  const mi=MONTH_SHORT.indexOf(parts[0]);
+  return parseInt(parts[1],10)*100+(mi>=0?mi:0);
+}
+
+function currentMonthKey(){
+  const d=new Date();
+  return MONTH_SHORT[d.getMonth()]+' '+d.getFullYear();
+}
+
+function listRecordMonthKeys(recs){
+  return [...new Set((recs||[]).map(recordMonthKey).filter(Boolean))]
+    .sort((a,b)=>monthKeySortVal(b)-monthKeySortVal(a));
+}
+
+function recordMatchesMonth(rec,monthKey){
+  if(!monthKey) return true;
+  return recordMonthKey(rec)===monthKey;
+}
+
+function recordsForMonth(recs,monthKey){
+  return (recs||[]).filter(r=>recordMatchesMonth(r,monthKey));
+}
+
+function formatRecordDate(rec){
+  const iso=extractRecordDateISO(rec);
+  if(iso){
+    const [y,m,d]=iso.split('-').map(Number);
+    return fmtDate(new Date(y,m-1,d));
+  }
+  if(!rec||!rec.punchIn) return '';
+  return rec.punchIn.includes('·')?rec.punchIn.split('·')[0].trim():rec.punchIn.substring(0,15);
+}
+
+function monthOptionsHtml(months,blankLabel){
+  const keys=[...new Set([...(months||[]),currentMonthKey()])]
+    .sort((a,b)=>monthKeySortVal(b)-monthKeySortVal(a));
+  const blank=blankLabel?`<option value="">${escapeHtml(blankLabel)}</option>`:'';
+  return blank+keys.map(m=>`<option>${escapeHtml(m)}</option>`).join('');
 }
 
 function isInManualTsRange(dateISO){

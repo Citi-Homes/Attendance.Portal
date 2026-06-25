@@ -49,6 +49,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .hint{text-align:center;margin-top:18px;font-size:12px;color:var(--text3)}
 .hint strong{color:var(--text2)}
 footer{margin-top:28px;text-align:center;font-size:11px;color:var(--text3)}
+footer a{color:var(--accent);text-decoration:none}
+footer a:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -111,10 +113,23 @@ footer{margin-top:28px;text-align:center;font-size:11px;color:var(--text3)}
       </button>
     </div>
   </div>
+  <footer id="login-footer"><a href="setup.html">First-time setup</a> · Citi Homes</footer>
 </div>
 
 <script src="config.js"></script>
 <script src="shared.js"></script>
+<script>
+(function showPortalLinks(){
+  const cfg=getConfig();
+  const el=document.getElementById("login-footer");
+  if(!cfg||!el) return;
+  const app=cfg.appUrl||getAppBaseUrl();
+  const db=cfg.supabaseUrl||"";
+  el.innerHTML='<span style="display:block;margin-bottom:6px;font-size:11px;color:var(--text3)">App: <a href="'+app+'" style="color:var(--accent)">'+app+'</a></span>'
+    +(db?'<span style="display:block;font-size:11px;color:var(--text3)">Data: Supabase · <a href="'+db.replace(/\/$/,"")+'/project/default/editor" target="_blank" rel="noopener" style="color:var(--accent)">Open database</a></span>':"")
+    +'<span style="display:block;margin-top:8px"><a href="setup.html">First-time setup</a> · Citi Homes</span>';
+})();
+</script>
 <script>
 "use strict";
 

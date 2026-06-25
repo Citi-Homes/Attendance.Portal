@@ -8,6 +8,13 @@
 window.ATT_CONFIG = {
   sessionSecret: "REPLACE_WITH_RANDOM_64_CHAR_HEX",
 
+  // Live app URL (GitHub Pages)
+  appUrl: "https://citi-homes.github.io/Attendance.Portal/",
+
+  // Supabase — cloud database (run supabase-setup.sql in SQL Editor)
+  supabaseUrl: "https://YOUR_PROJECT.supabase.co",
+  supabaseAnonKey: "YOUR_SUPABASE_ANON_KEY",
+
   admins: [
     {
       user: "admin@citihomes.ae",

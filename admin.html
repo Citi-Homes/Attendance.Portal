@@ -9,6 +9,8 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
+<div id="app-loading" class="app-loading open"><div class="app-loading-inner"><div class="spinner"></div><div class="app-loading-msg">Loading dashboard…</div></div></div>
+<div id="storage-banner" class="storage-banner"></div>
 <script src="config.js"></script>
 <script src="shared.js"></script>
 <script>const ADMIN_SESSION=requireAdmin();const ADMIN_CAN_WRITE=ADMIN_SESSION.adminMode!=='readonly';</script>
@@ -244,9 +246,20 @@
 </div>
 
 <script>
-let allRecords=loadRecords();
+let allRecords=[];
 let editingId=null,deletingId=null;
 let tsPendingImport=null;
+let recordsReady=false;
+
+async function reloadRecords(){
+  allRecords=await loadRecordsAsync();
+  recordsReady=true;
+  return allRecords;
+}
+
+function persistRec(rec){
+  return persistRecord(rec).catch(err=>{notifySaveError(err);throw err;});
+}
 
 function adminRecordActions(id){
   if(!ADMIN_CAN_WRITE) return '';
@@ -278,15 +291,23 @@ setInterval(tick,1000);tick();
 /* ── Helpers ── */
 function openOv(id){document.getElementById(id).classList.add('open');}
 function closeAll(){document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open'));}
-function refreshAll(){allRecords=loadRecords();populateFilters();renderDash();renderAllRecs();renderLocation();renderHours();renderEmpDir();renderManualTs();}
+async function refreshAll(){
+  try{await reloadRecords();}catch(err){notifySaveError(err);return;}
+  populateFilters();renderDash();renderAllRecs();renderLocation();renderHours();renderEmpDir();renderManualTs();
+}
 
 /* ── Section nav ── */
-function showSec(id,el){
+async function showSec(id,el){
   document.querySelectorAll('.page-section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
   el.classList.add('active');
   if(location.hash!=='#'+id) history.replaceState(null,'','#'+id);
+  try{
+    await reloadRecords();
+    populateFilters();
+  }catch(err){notifySaveError(err);}
+  if(id==='overview') renderDash();
   if(id==='all-records') renderAllRecs();
   if(id==='location')    renderLocation();
   if(id==='hours')       renderHours();
@@ -296,9 +317,9 @@ function showSec(id,el){
 
 /* ── Populate filter dropdowns ── */
 function populateFilters(){
-  allRecords=loadRecords();
   const empCodes=[...new Set([...Object.keys(EMPLOYEES), ...allRecords.map(r=>r.empCode)])].sort();
-  const months=[...new Set(allRecords.map(r=>{const m=MONTH_SHORT.find(m=>r.punchIn.includes(m));const y=r.punchIn.match(/\d{4}/)?.[0];return m&&y?`${m} ${y}`:null}).filter(Boolean))];
+  const months=listRecordMonthKeys(allRecords);
+  const cur=currentMonthKey();
   ['f-emp','loc-f-emp','manual-ts-emp'].forEach(id=>{
     const s=document.getElementById(id);
     if(!s) return;
@@ -307,7 +328,10 @@ function populateFilters(){
   ['f-month','loc-f-month','hr-month'].forEach(id=>{
     const s=document.getElementById(id);
     if(!s) return;
-    s.innerHTML=(id==='hr-month'?'<option value="">All time</option>':'<option value="">All months</option>')+months.map(m=>`<option>${escapeHtml(m)}</option>`).join('');
+    const prev=s.value;
+    s.innerHTML=monthOptionsHtml(months,id==='hr-month'?'All time':'All months');
+    if(prev&&[...s.options].some(o=>o.text===prev)) s.value=prev;
+    else if(id==='hr-month'&&[...s.options].some(o=>o.text===cur)) s.value=cur;
   });
 }
 
@@ -347,7 +371,6 @@ function renderDash(){
 
 /* ── ALL RECORDS ── */
 function renderAllRecs(){
-  allRecords=loadRecords();
   const fEmp=document.getElementById('f-emp').value;
   const fCat=document.getElementById('f-cat').value;
   const fMonth=document.getElementById('f-month').value;
@@ -356,7 +379,7 @@ function renderAllRecs(){
   let recs=allRecords.filter(r=>{
     if(fEmp&&r.empCode!==fEmp)return false;
     if(fCat&&r.category!==fCat)return false;
-    if(fMonth&&!r.punchIn.includes(fMonth))return false;
+    if(fMonth&&!recordMatchesMonth(r,fMonth))return false;
     if(fStatus&&r.status!==fStatus)return false;
     if(fSearch&&!r.empName.toLowerCase().includes(fSearch)&&!r.empCode.toLowerCase().includes(fSearch))return false;
     return true;
@@ -393,12 +416,11 @@ function renderAllRecs(){
 
 /* ── LOCATION ── */
 function renderLocation(){
-  allRecords=loadRecords();
   const fEmp=document.getElementById('loc-f-emp').value;
   const fMonth=document.getElementById('loc-f-month').value;
   let recs=allRecords.filter(r=>{
     if(fEmp&&r.empCode!==fEmp)return false;
-    if(fMonth&&!r.punchIn.includes(fMonth))return false;
+    if(fMonth&&!recordMatchesMonth(r,fMonth))return false;
     return true;
   });
   const wrap=document.getElementById('location-wrap');
@@ -433,9 +455,8 @@ function renderLocation(){
 
 /* ── HOURS REPORT ── */
 function renderHours(){
-  allRecords=loadRecords();
   const fMonth=document.getElementById('hr-month').value;
-  const recs=allRecords.filter(r=>!fMonth||r.punchIn.includes(fMonth));
+  const recs=recordsForMonth(allRecords,fMonth);
   const empMap={};
   recs.forEach(r=>{
     if(!empMap[r.empCode])empMap[r.empCode]={name:r.empName,dept:r.department,days:0,totalMins:0,otMins:0,cats:{Office:0,Procurement:0,Interview:0}};
@@ -507,7 +528,7 @@ function openEdit(id){
   document.getElementById('edit-remarks').value=rec.remarks||'';
   openOv('ov-edit');
 }
-function saveEdit(){
+async function saveEdit(){
   if(!requireAdminWrite('edit records')) return;
   const rec=allRecords.find(r=>r.id===editingId);
   if(!rec)return;
@@ -523,7 +544,8 @@ function saveEdit(){
   } else rec.punchOut='';
   rec.status=document.getElementById('edit-status').value;
   rec.remarks=document.getElementById('edit-remarks').value.trim();
-  saveRecords(allRecords);closeAll();renderAllRecs();renderDash();
+  try{await persistRec(rec);}catch{return;}
+  closeAll();renderAllRecs();renderDash();
 }
 
 /* ── DELETE ── */
@@ -535,15 +557,15 @@ function openDelete(id){
   document.getElementById('del-info').innerHTML=`<b>${rec.empName}</b> (${rec.empCode})<br>${catBadge(rec.category)} · ${rec.punchIn.split('·')[0].trim()}`;
   openOv('ov-delete');
 }
-function confirmDelete(){
+async function confirmDelete(){
   if(!requireAdminWrite('delete records')) return;
+  try{await deleteRecordAsync(deletingId);}catch(err){notifySaveError(err);return;}
   allRecords=allRecords.filter(r=>r.id!==deletingId);
-  saveRecords(allRecords);closeAll();renderAllRecs();renderDash();
+  closeAll();renderAllRecs();renderDash();
 }
 
 /* ── EXPORT CSVs ── */
 function exportAllCSV(){
-  allRecords=loadRecords();
   if(!allRecords.length){alert('No records.');return;}
   const hdr=['ID','EmpCode','Name','Designation','Department','Category','PunchIn','PunchOut','Hours(decimal)','Status','Remarks'];
   const rows=allRecords.map(r=>{
@@ -553,7 +575,6 @@ function exportAllCSV(){
   dl([hdr.join(','),...rows].join('\n'),'attendance_all_'+todayISO()+'.csv');
 }
 function exportLocCSV(){
-  allRecords=loadRecords();
   const hdr=['EmpCode','Name','Category','Date','PunchInTime','LocIn_Lat','LocIn_Lng','AccuracyIn','PunchOutTime','LocOut_Lat','LocOut_Lng','AccuracyOut','Source'];
   const rows=allRecords.map(r=>{
     const li=r.locIn||{};const lo=r.locOut||{};
@@ -565,9 +586,8 @@ function exportLocCSV(){
   dl([hdr.join(','),...rows].join('\n'),'location_data_'+todayISO()+'.csv');
 }
 function exportHoursCSV(){
-  allRecords=loadRecords();
   const fMonth=document.getElementById('hr-month').value;
-  const recs=allRecords.filter(r=>!fMonth||r.punchIn.includes(fMonth));
+  const recs=recordsForMonth(allRecords,fMonth);
   const empMap={};
   recs.forEach(r=>{
     if(!empMap[r.empCode])empMap[r.empCode]={name:r.empName,dept:r.department,days:0,totalMins:0,otMins:0};
@@ -622,7 +642,6 @@ function downloadManualTsTemplate(){
 
 function exportManualTsExcel(){
   if(typeof XLSX==='undefined'){alert('Excel library not loaded.');return;}
-  allRecords=loadRecords();
   const recs=manualTsRecords(allRecords);
   const rows=recs.map(r=>{
     const dateISO=extractRecordDateISO(r)||'';
@@ -769,11 +788,11 @@ function clearTsPreview(){
   document.getElementById('ts-import-preview').style.display='none';
 }
 
-function confirmTsImport(){
+async function confirmTsImport(){
   if(!requireAdminWrite('import timesheets')) return;
   if(!tsPendingImport||!tsPendingImport.length){alert('Nothing to import.');return;}
-  allRecords=loadRecords();
   let added=0,updated=0;
+  const toSave=[];
   tsPendingImport.forEach(row=>{
     const idx=allRecords.findIndex(r=>r.empCode===row.empCode&&extractRecordDateISO(r)===row.dateISO);
     if(idx>=0){
@@ -784,18 +803,21 @@ function confirmTsImport(){
       rec.status=row.status;
       rec.remarks=row.remarks;
       rec.source='manual-timesheet';
+      toSave.push(rec);
       updated++;
     }else{
-      allRecords.unshift({
+      const rec={
         id:nextRecordId(allRecords),
         empCode:row.empCode,empName:row.empName,designation:row.designation,department:row.department,
         category:row.category,punchIn:row.punchIn,punchOut:row.punchOut,remarks:row.remarks,
         locIn:null,locOut:null,status:row.status,extra:{},source:'manual-timesheet'
-      });
+      };
+      allRecords.unshift(rec);
+      toSave.push(rec);
       added++;
     }
   });
-  saveRecords(allRecords);
+  try{await upsertRecordsBulkAsync(toSave);await reloadRecords();}catch(err){notifySaveError(err);return;}
   clearTsPreview();
   populateFilters();
   renderManualTs();
@@ -804,7 +826,6 @@ function confirmTsImport(){
 }
 
 function renderManualTs(){
-  allRecords=loadRecords();
   const fEmp=document.getElementById('manual-ts-emp').value;
   let recs=manualTsRecords(allRecords);
   if(fEmp) recs=recs.filter(r=>r.empCode===fEmp);
@@ -854,11 +875,31 @@ function renderManualTs(){
 })();
 
 /* ── Init ── */
-initAdminAccessUI();
-populateFilters();
-renderDash();
-document.getElementById('dash-date').textContent='Today: '+fmtDate(new Date());
-initHashRouting(['overview','all-records','location','hours','employees','manual-timesheet'], showSec, 'overview');
+async function bootstrapAdmin(){
+  setAppLoading(true, 'Connecting to cloud…');
+  initAdminAccessUI();
+  try{
+    const health = await checkRemoteStorageHealth();
+    showStorageBanner(health);
+    if (health.ok) {
+      const mig = await migrateLocalRecordsToCloud();
+      if (mig.migrated > 0) {
+        alert('Uploaded ' + mig.migrated + ' record(s) from this device to the cloud.');
+      }
+    }
+    await reloadRecords();
+  }catch(err){
+    notifySaveError(err);
+    allRecords=[];
+  }finally{
+    setAppLoading(false);
+  }
+  populateFilters();
+  renderDash();
+  document.getElementById('dash-date').textContent='Today: '+fmtDate(new Date());
+  initHashRouting(['overview','all-records','location','hours','employees','manual-timesheet'], showSec, 'overview');
+}
+bootstrapAdmin();
 </script>
 </body>
 </html>

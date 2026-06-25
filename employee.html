@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
+<div id="app-loading" class="app-loading open"><div class="app-loading-inner"><div class="spinner"></div><div class="app-loading-msg">Loading attendance…</div></div></div>
+<div id="storage-banner" class="storage-banner"></div>
 <script src="config.js"></script>
 <script src="shared.js"></script>
 <script>const SESSION=requireEmployee();const EMP=SESSION.emp;const EMPCODE=SESSION.empCode;</script>
@@ -55,9 +57,6 @@
 
   <!-- MAIN -->
   <main class="main-content">
-<button onclick="markAttendance('EMP001','Present')">
-  Mark Attendance
-</button>
     <!-- ══ MARK ATTENDANCE ══ -->
     <div class="page-section active" id="sec-mark">
       <div class="card-header" style="margin-bottom:20px">
@@ -349,11 +348,21 @@
 <script>
 /* ── Init ── */
 let flow={};
-let allRecords=loadRecords();
+let allRecords=[];
+let recordsReady=false;
 
 function todayRecs(){return allRecords.filter(r=>r.empCode===EMPCODE&&isRecordToday(r));}
 
 function myRecs(){return allRecords.filter(r=>r.empCode===EMPCODE);}
+
+async function reloadRecords(){
+  allRecords=await loadRecordsAsync();
+  recordsReady=true;
+}
+
+function persistRec(rec){
+  return persistRecord(rec).catch(err=>{notifySaveError(err);throw err;});
+}
 
 /* ── Sidebar populate ── */
 document.getElementById('sb-avatar').textContent=EMP.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
@@ -370,13 +379,16 @@ function tick(){
 setInterval(tick,1000);tick();
 
 /* ── Section nav ── */
-function showSection(id, el){
+async function showSection(id, el){
   document.querySelectorAll('.page-section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
   const nav=el||document.querySelector(`.nav-item[data-section="${id}"]`);
   if(nav) nav.classList.add('active');
   if(location.hash!=='#'+id) history.replaceState(null,'','#'+id);
+  if(id==='my-records'||id==='summary'){
+    try{await reloadRecords();populateMonthFilters();}catch(err){notifySaveError(err);}
+  }
   if(id==='my-records') renderMyRecords();
   if(id==='summary') renderSummary();
 }
@@ -399,16 +411,15 @@ function tsBlock(id){
 
 function silentLocIn(rec){
   rec.locIn=getSilentLocSnapshot();
-  refreshRecordLoc(rec,'locIn',()=>saveRecords(allRecords));
+  refreshRecordLoc(rec,'locIn',()=>persistRec(rec).catch(()=>{}));
 }
 function silentLocOut(rec){
   rec.locOut=getSilentLocSnapshot();
-  refreshRecordLoc(rec,'locOut',()=>saveRecords(allRecords));
+  refreshRecordLoc(rec,'locOut',()=>persistRec(rec).catch(()=>{}));
 }
 
 /* ── Today card ── */
 function renderTodayCard(){
-  allRecords=loadRecords();
   const todayStr=fmtDate(new Date());
   const card=document.getElementById('today-card');
   const badge=document.getElementById('today-status-badge');
@@ -495,17 +506,18 @@ function selCat(cat){
 }
 
 /* ══ OFFICE ══ */
-function saveOffIn(){
+async function saveOffIn(){
   const d=new Date();
   const rec={id:Date.now(),empCode:EMPCODE,empName:EMP.name,designation:EMP.desig,department:EMP.dept,
     category:'Office',punchIn:fmtDT(d),punchOut:'',remarks:document.getElementById('off-in-rem').value.trim(),
     locIn:null,locOut:null,status:'Punched In',extra:{}};
   silentLocIn(rec);
-  allRecords.unshift(rec);flow.activeId=rec.id;saveRecords(allRecords);
+  allRecords.unshift(rec);flow.activeId=rec.id;
+  try{await persistRec(rec);}catch{return;}
   closeAll();setSteps('st-off-out',2,2);tsBlock('ts-off-out');
   document.getElementById('off-out-rem').value='';openOv('ov-off-out');renderTodayCard();
 }
-function saveOffOut(){
+async function saveOffOut(){
   const d=new Date();
   const rec=allRecords.find(r=>r.id===flow.activeId);
   if(rec){
@@ -513,7 +525,7 @@ function saveOffOut(){
     silentLocOut(rec);
     const ex=document.getElementById('off-out-rem').value.trim();
     if(ex)rec.remarks=(rec.remarks?rec.remarks+' | ':'')+ex;
-    saveRecords(allRecords);
+    try{await persistRec(rec);}catch{return;}
   }
   closeAll();renderTodayCard();
 }
@@ -528,7 +540,7 @@ function renderProcPrev(){
   document.getElementById('proc-in-title').textContent=flow.procVisits.length===0?'Procurement — Punch in':`Procurement — Visit #${flow.procVisits.length+1}`;
   vl.innerHTML=flow.procVisits.length?`<ul class="visit-list">${flow.procVisits.map((v,i)=>`<li><strong>Visit ${i+1}:</strong> ${v.clientType}: ${v.clientName} — ${v.reason}</li>`).join('')}</ul>`:'';
 }
-function saveProcIn(){
+async function saveProcIn(){
   const d=new Date();
   const locSnap=getSilentLocSnapshot();
   flow.curVisit={punchIn:fmtDT(d),locIn:locSnap};
@@ -537,8 +549,9 @@ function saveProcIn(){
       category:'Procurement',punchIn:fmtDT(d),punchOut:'',remarks:'',locIn:locSnap,locOut:null,status:'In Progress',extra:{visits:[]}};
     allRecords.unshift(flow.procMainRec);flow.activeId=flow.procMainRec.id;
     silentLocIn(flow.procMainRec);
+    try{await persistRec(flow.procMainRec);}catch{return;}
   }
-  saveRecords(allRecords);closeAll();
+  closeAll();
   document.getElementById('proc-type').value='Client';document.getElementById('proc-cname').value='';
   document.getElementById('proc-office-note').style.display='none';
   setSteps('st-proc-client',2,4);openOv('ov-proc-client');
@@ -559,38 +572,41 @@ function saveProcClient(){
   document.getElementById('proc-reason-txt').value='';
   setSteps('st-proc-reason',3,4);openOv('ov-proc-reason');
 }
-function saveProcReason(){
+async function saveProcReason(){
   const r=document.getElementById('proc-reason-txt').value.trim();
   if(!r){alert('Please enter a reason.');return;}
   flow.curVisit.reason=r;flow.procVisits.push({...flow.curVisit});
-  updateProcRecord();closeAll();
+  if(!(await updateProcRecord())) return;
+  closeAll();
   const n=new Date();
   document.getElementById('proc-next-time').textContent='Recorded at '+fmtTime(n);
   document.getElementById('proc-warn-18').style.display=n.getHours()>=17?'flex':'none';
   document.getElementById('proc-all-visits').innerHTML=`<ul class="visit-list">${flow.procVisits.map((v,i)=>`<li><strong>Visit ${i+1}:</strong> ${v.clientType}: ${v.clientName} — ${v.reason}</li>`).join('')}</ul>`;
   openOv('ov-proc-next');renderTodayCard();
 }
-function updateProcRecord(){
+async function updateProcRecord(){
   const rec=allRecords.find(r=>r.id===flow.activeId);
   if(rec){rec.extra.visits=flow.procVisits;rec.remarks=flow.procVisits.map((v,i)=>`Visit ${i+1}: ${v.clientType} ${v.clientName} — ${v.reason}`).join(' | ');}
-  saveRecords(allRecords);
+  if(rec){try{await persistRec(rec);}catch{return false;}}
+  return true;
 }
 function procNextVisit(){
   if(new Date().getHours()>=18){alert('Work day ended (18:00). Please return to office.');procReturnOffice();return;}
   closeAll();renderProcPrev();setSteps('st-proc-in',1,4);tsBlock('ts-proc-in');openOv('ov-proc-in');
 }
-function procReturnOffice(){
+async function procReturnOffice(){
   const d=new Date();
   const rec=allRecords.find(r=>r.id===flow.activeId);
   if(rec){
     rec.punchOut=fmtDT(d);rec.status='Completed';
     silentLocOut(rec);
-    saveRecords(allRecords);
+    try{await persistRec(rec);}catch{return;}
   }
   closeAll();renderTodayCard();
 }
-function finaliseProcRecord(){
-  updateProcRecord();procReturnOffice();
+async function finaliseProcRecord(){
+  if(!(await updateProcRecord())) return;
+  await procReturnOffice();
 }
 function continueProcurement(id){
   flow={empCode:EMPCODE,emp:EMP,procVisits:[],activeId:id};
@@ -647,7 +663,7 @@ function saveIvPos(){
   document.getElementById('iv-remarks').value='';
   setSteps('st-iv-cand',5,5);openOv('ov-iv-cand');
 }
-function saveIvCand(){
+async function saveIvCand(){
   const name=document.getElementById('iv-cname').value.trim();
   const phone=document.getElementById('iv-cphone').value.trim();
   const rem=document.getElementById('iv-remarks').value.trim();
@@ -657,21 +673,30 @@ function saveIvCand(){
     locIn:flow.ivLocIn||getSilentLocSnapshot(),locOut:null,status:'Recorded',
     extra:{ivLocation:flow.ivLoc==='inside'?'Inside office':'Outside — '+flow.ivArea,position:flow.ivPos,candidateName:name,candidateContact:phone}};
   silentLocIn(rec);
-  allRecords.unshift(rec);saveRecords(allRecords);closeAll();renderTodayCard();
+  allRecords.unshift(rec);
+  try{await persistRec(rec);}catch{return;}
+  closeAll();renderTodayCard();
 }
 
 /* ── My Records ── */
 function populateMonthFilters(){
-  const months=[...new Set(allRecords.filter(r=>r.empCode===EMPCODE).map(r=>{const d=r.punchIn;const m=MONTH_SHORT.find(m=>d.includes(m));const y=d.match(/\d{4}/)?.[0];return m&&y?`${m} ${y}`:null}).filter(Boolean))];
-  const sel=document.getElementById('filter-month');
-  sel.innerHTML='<option value="">All months</option>'+months.map(m=>`<option>${m}</option>`).join('');
+  const myRecs=allRecords.filter(r=>r.empCode===EMPCODE);
+  const months=listRecordMonthKeys(myRecs);
+  const cur=currentMonthKey();
+  const fsel=document.getElementById('filter-month');
+  const prevF=fsel.value;
+  fsel.innerHTML=monthOptionsHtml(months,'All months');
+  if(prevF&&[...fsel.options].some(o=>o.text===prevF)) fsel.value=prevF;
   const ssel=document.getElementById('sum-month-sel');
-  ssel.innerHTML=months.map(m=>`<option>${m}</option>`).join('');
+  const prevS=ssel.value;
+  ssel.innerHTML=monthOptionsHtml(months,null);
+  if(prevS&&[...ssel.options].some(o=>o.text===prevS)) ssel.value=prevS;
+  else if([...ssel.options].some(o=>o.text===cur)) ssel.value=cur;
 }
 
 function renderMyRecords(){
   const filter=document.getElementById('filter-month').value;
-  const recs=allRecords.filter(r=>r.empCode===EMPCODE&&(!filter||r.punchIn.includes(filter)));
+  const recs=allRecords.filter(r=>r.empCode===EMPCODE&&recordMatchesMonth(r,filter));
   const wrap=document.getElementById('my-records-wrap');
   if(!recs.length){wrap.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No records found.</p></div>';return;}
   let html=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Punch In</th><th>Punch Out</th><th>Hours</th><th>Details</th><th>Remarks</th><th>Status</th></tr></thead><tbody>`;
@@ -692,7 +717,7 @@ function renderMyRecords(){
 function renderSummary(){
   populateMonthFilters();
   const filter=document.getElementById('sum-month-sel').value;
-  const recs=allRecords.filter(r=>r.empCode===EMPCODE&&(!filter||r.punchIn.includes(filter)));
+  const recs=allRecords.filter(r=>r.empCode===EMPCODE&&recordMatchesMonth(r,filter));
   const totalMins=recs.reduce((s,r)=>{const m=calcHours(r.punchIn,r.punchOut);return s+(m||0);},0);
   const workDays=recs.filter(r=>calcHours(r.punchIn,r.punchOut)).length;
   const otMins=recs.reduce((s,r)=>{const m=calcHours(r.punchIn,r.punchOut);return s+(m&&m>480?m-480:0);},0);
@@ -728,10 +753,28 @@ function exportMyCSV(){
 }
 
 /* ── Init ── */
+async function bootstrapEmployee(){
+  setAppLoading(true, 'Connecting to cloud…');
+  try{
+    const health = await checkRemoteStorageHealth();
+    showStorageBanner(health);
+    if (!health.ok && health.reason !== 'table_missing') {
+      // still try load — may work after setup
+    }
+    await reloadRecords();
+  }catch(err){
+    notifySaveError(err);
+    allRecords=[];
+  }finally{
+    setAppLoading(false);
+  }
+  prefetchSilentLocation();
+  populateMonthFilters();
+  renderTodayCard();
+  initHashRouting(['mark','my-records','summary'], showSection, 'mark');
+}
 prefetchSilentLocation();
-populateMonthFilters();
-renderTodayCard();
-initHashRouting(['mark','my-records','summary'], showSection, 'mark');
+bootstrapEmployee();
 </script>
 </body>
 </html>

@@ -214,3 +214,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
   .stats-grid{grid-template-columns:1fr 1fr}
   .cat-tiles-3{grid-template-columns:1fr}
 }
+
+/* ── APP LOADING & STORAGE BANNER ── */
+.app-loading{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:10000;opacity:0;pointer-events:none;transition:opacity .2s}
+.app-loading.open{opacity:1;pointer-events:auto}
+.app-loading-inner{display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--text2);font-size:14px}
+.spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.storage-banner{display:none;margin:0;padding:10px 16px;font-size:12px;line-height:1.5;border-bottom:1px solid var(--border);background:var(--surface2);color:var(--text2)}
+.storage-banner.open{display:block}
+.storage-banner-warn{background:var(--orange-bg);border-bottom-color:var(--orange-border);color:var(--text)}
+.storage-banner code{font-family:var(--mono);font-size:11px;background:var(--surface3);padding:2px 6px;border-radius:4px}

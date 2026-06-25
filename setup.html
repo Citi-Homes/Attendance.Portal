@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Setup — Citi Homes Attendance Portal</title>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
+  .setup{width:100%;max-width:560px}
+  .setup h1{font-size:22px;margin-bottom:8px}
+  .setup p{color:var(--text2);font-size:14px;line-height:1.6;margin-bottom:20px}
+  .step{display:flex;gap:14px;padding:16px;border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:12px;background:var(--surface)}
+  .step-num{width:28px;height:28px;border-radius:50%;background:var(--accent-bg);color:var(--accent);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .step-body{flex:1;min-width:0}
+  .step-title{font-weight:600;font-size:14px;margin-bottom:6px}
+  .step-desc{font-size:13px;color:var(--text2);line-height:1.55}
+  .step-status{font-size:12px;margin-top:8px;font-weight:600}
+  .step-status.ok{color:var(--green)}
+  .step-status.fail{color:var(--red)}
+  .step-status.pending{color:var(--text3)}
+  .setup-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+  .step-troubleshoot{margin-top:10px;padding:10px 12px;border-radius:var(--r);background:var(--accent-bg);font-size:12px;color:var(--text2);line-height:1.5}
+  .step-troubleshoot p{margin:0 0 8px}
+</style>
+</head>
+<body>
+<div class="setup">
+  <h1>Attendance Portal Setup</h1>
+  <p>Run this once to confirm cloud storage is ready. After all checks pass, use the <strong>GitHub app URL</strong> below — all attendance is stored in <strong>Supabase</strong>.</p>
+  <div class="step" style="margin-bottom:16px">
+    <div class="step-num">↗</div>
+    <div class="step-body">
+      <div class="step-title">Your live URLs</div>
+      <div class="step-desc" id="live-urls">Loading…</div>
+    </div>
+  </div>
+
+  <div class="step" id="step-config">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Configuration file</div>
+      <div class="step-desc"><code>config.js</code> must exist with Supabase URL and anon key.</div>
+      <div class="step-status pending" id="status-config">Checking…</div>
+    </div>
+  </div>
+
+  <div class="step" id="step-table">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Cloud database table</div>
+      <div class="step-desc">Table <code>attendance_records</code> in Supabase. Run <code>supabase-setup.sql</code> in Supabase → SQL Editor, or <code>npm run setup:db</code>.</div>
+      <div class="step-status pending" id="status-table">Checking…</div>
+      <div class="step-troubleshoot" id="step-table-troubleshoot" hidden>
+        <p>If you see permission denied (42501), run this instead of the full setup SQL.</p>
+        <button class="btn" type="button" onclick="copySql('fix')">Copy permissions fix SQL</button>
+      </div>
+      <div class="step-troubleshoot" id="step-record-date-troubleshoot" hidden>
+        <p>For reliable monthly reports, add the <code>record_date</code> column to existing databases.</p>
+        <button class="btn" type="button" onclick="copySql('record-date')">Copy record_date migration SQL</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="step-api">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Read &amp; write test</div>
+      <div class="step-desc">Verifies the app can save and delete a test record.</div>
+      <div class="step-status pending" id="status-api">Waiting…</div>
+    </div>
+  </div>
+
+  <div class="setup-actions">
+    <button class="btn btn-primary" type="button" onclick="runChecks()">Run checks again</button>
+    <button class="btn" type="button" onclick="copySql('setup')">Copy full setup SQL</button>
+    <a class="btn" href="https://supabase.com/dashboard/project/mnfrbyzdubsgnhxrzuxx/sql/new" target="_blank" rel="noopener">Open Supabase SQL Editor</a>
+    <a class="btn" href="index.html">Go to login</a>
+  </div>
+  <textarea id="sql-src" style="position:absolute;left:-9999px;height:0;opacity:0" readonly></textarea>
+</div>
+
+<script>
+async function loadSqlTemplate(kind) {
+  const files = { fix: 'supabase-fix-permissions.sql', setup: 'supabase-setup.sql', 'record-date': 'supabase-add-record-date.sql' };
+  const file = files[kind] || files.setup;
+  try {
+    const res = await fetch(file);
+    document.getElementById('sql-src').value = await res.text();
+  } catch (_) {}
+}
+async function copySql(kind) {
+  await loadSqlTemplate(kind || 'setup');
+  const ta = document.getElementById('sql-src');
+  if (!ta.value) { alert('Could not load SQL file'); return; }
+  ta.select();
+  ta.setSelectionRange(0, ta.value.length);
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    alert(kind === 'fix'
+      ? 'Permissions fix copied! Paste in Supabase SQL Editor and click Run.'
+      : kind === 'record-date'
+      ? 'record_date migration copied! Paste in Supabase SQL Editor and click Run.'
+      : 'SQL copied! Paste into Supabase SQL Editor and click Run.');
+  } catch (_) {
+    alert('Copy failed — open the .sql file manually in the project folder.');
+  }
+}
+loadSqlTemplate('setup');
+</script>
+
+<script src="config.js"></script>
+<script src="shared.js"></script>
+<script>
+function setStatus(id, ok, text) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'step-status ' + (ok === null ? 'pending' : ok ? 'ok' : 'fail');
+}
+
+function showTableTroubleshoot(show) {
+  const el = document.getElementById('step-table-troubleshoot');
+  if (el) el.hidden = !show;
+}
+
+function showRecordDateTroubleshoot(show) {
+  const el = document.getElementById('step-record-date-troubleshoot');
+  if (el) el.hidden = !show;
+}
+
+function isPermissionError(health) {
+  if (health.reason === 'permissions_missing') return true;
+  const d = String(health.detail || '');
+  return d.includes('42501') || d.toLowerCase().includes('permission denied');
+}
+
+async function runChecks() {
+  showTableTroubleshoot(false);
+  showRecordDateTroubleshoot(false);
+  setStatus('status-config', null, 'Checking…');
+  setStatus('status-table', null, 'Checking…');
+  setStatus('status-api', null, 'Waiting…');
+
+  const cfg = getConfig();
+  if (!cfg || !cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+    setStatus('status-config', false, 'Missing — copy config.example.js to config.js and add Supabase keys');
+    setStatus('status-table', false, 'Skipped');
+    setStatus('status-api', false, 'Skipped');
+    return;
+  }
+  setStatus('status-config', true, 'OK — Supabase configured');
+
+  const health = await checkRemoteStorageHealth();
+  if (!health.ok) {
+    if (isPermissionError(health)) showTableTroubleshoot(true);
+    setStatus('status-table', false, health.reason === 'table_missing'
+      ? 'Table missing — run supabase-setup.sql in Supabase SQL Editor'
+      : isPermissionError(health)
+      ? 'Permissions missing — run supabase-fix-permissions.sql (see below)'
+      : 'Error — ' + (health.detail || health.reason));
+    setStatus('status-api', false, 'Skipped');
+    return;
+  }
+  setStatus('status-table', true, health.recordDateColumn === false
+    ? 'OK — table exists (optional: add record_date for monthly reports)'
+    : 'OK — table exists with record_date');
+  if (health.recordDateColumn === false) showRecordDateTroubleshoot(true);
+
+  setStatus('status-api', null, 'Testing write…');
+  const testId = Date.now();
+  const rec = {
+    id: testId, empCode: 'TEST', empName: 'Setup Test', designation: '', department: '',
+    category: 'Office', punchIn: 'Setup test', punchOut: '', remarks: '', locIn: null, locOut: null,
+    status: 'Recorded', extra: {}, source: 'setup-page'
+  };
+  try {
+    await upsertRecordAsync(rec);
+    await deleteRecordAsync(testId);
+    setStatus('status-api', true, 'OK — read, write, and delete working');
+  } catch (e) {
+    setStatus('status-api', false, 'Failed — ' + (e.message || e));
+  }
+}
+
+function renderLiveUrls() {
+  const cfg = getConfig();
+  const el = document.getElementById('live-urls');
+  if (!el) return;
+  const app = (cfg && cfg.appUrl) ? cfg.appUrl : getAppBaseUrl();
+  const db = cfg && cfg.supabaseUrl ? cfg.supabaseUrl.replace(/\/$/, '') : '—';
+  el.innerHTML = '<div><b>App (share with staff):</b><br><a href="' + app + '" style="color:var(--accent)">' + app + '</a></div>'
+    + '<div style="margin-top:8px"><b>Data (Supabase):</b><br><code style="font-size:11px">' + db + '</code> · table <code>attendance_records</code></div>';
+}
+
+renderLiveUrls();
+runChecks();
+</script>
+</body>
+</html>
