@@ -791,28 +791,78 @@ function manualTsRecords(recs){
   return recs.filter(r=>isInManualTsRange(extractRecordDateISO(r)));
 }
 
-// ── Location helper (silent background capture — no employee UI) ─────────────
+// ── Location helper (Android app + browser) ───────────────────────────────────
 let _silentLocCache=null;
 
-function getLocation(cb){
+function isCapacitorApp(){
+  return typeof window!=='undefined'&&window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform();
+}
+
+function locFromCoords(coords){
+  return {
+    lat:coords.latitude.toFixed(6),
+    lng:coords.longitude.toFixed(6),
+    acc:Math.round(coords.accuracy)+'m',
+    src:isCapacitorApp()?'GPS (App)':'GPS'
+  };
+}
+
+function deniedLoc(){return {lat:'Denied',lng:'',acc:'',src:'Denied'};}
+function unavailableLoc(){return {lat:'Unavailable',lng:'',acc:'',src:'Unavailable'};}
+
+async function getLocationCapacitor(cb){
+  const Geo=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Geolocation;
+  if(!Geo) return false;
+  try{
+    let perm=await Geo.checkPermissions();
+    if(perm.location!=='granted'&&perm.coarseLocation!=='granted'){
+      perm=await Geo.requestPermissions();
+    }
+    if(perm.location!=='granted'&&perm.coarseLocation!=='granted'){
+      cb(deniedLoc());
+      return true;
+    }
+    const p=await Geo.getCurrentPosition({enableHighAccuracy:true,timeout:15000,maximumAge:0});
+    const loc=locFromCoords(p.coords);
+    _silentLocCache=loc;
+    cb(loc);
+  }catch(_){
+    cb(unavailableLoc());
+  }
+  return true;
+}
+
+function getLocationBrowser(cb){
   if(!navigator.geolocation){cb({lat:'N/A',lng:'',acc:'',src:'Not supported'});return;}
   navigator.geolocation.getCurrentPosition(
     p=>{
-      const loc={lat:p.coords.latitude.toFixed(6),lng:p.coords.longitude.toFixed(6),acc:Math.round(p.coords.accuracy)+'m',src:'GPS'};
+      const loc=locFromCoords(p.coords);
       _silentLocCache=loc;
       cb(loc);
     },
-    ()=>cb({lat:'Unavailable',lng:'',acc:'',src:'Unavailable'}),
-    {timeout:10000,maximumAge:300000}
+    ()=>cb(unavailableLoc()),
+    {enableHighAccuracy:true,timeout:15000,maximumAge:isCapacitorApp()?0:60000}
   );
 }
 
+function getLocation(cb){
+  if(isCapacitorApp()){
+    getLocationCapacitor(cb);
+    return;
+  }
+  getLocationBrowser(cb);
+}
+
 function prefetchSilentLocation(){
+  if(isCapacitorApp()){
+    getLocationCapacitor(()=>{});
+    return;
+  }
   if(!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(
-    p=>{_silentLocCache={lat:p.coords.latitude.toFixed(6),lng:p.coords.longitude.toFixed(6),acc:Math.round(p.coords.accuracy)+'m',src:'GPS'};},
+    p=>{_silentLocCache=locFromCoords(p.coords);},
     ()=>{},
-    {timeout:10000,maximumAge:300000}
+    {enableHighAccuracy:true,timeout:15000,maximumAge:60000}
   );
 }
 

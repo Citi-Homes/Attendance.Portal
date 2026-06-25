@@ -771,6 +771,12 @@ async function bootstrapEmployee(){
     setAppLoading(false);
   }
   purgeLegacyLocalRecords();
+  if(isCapacitorApp()){
+    try{
+      const Geo=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Geolocation;
+      if(Geo) await Geo.requestPermissions();
+    }catch(_){}
+  }
   prefetchSilentLocation();
   populateMonthFilters();
   renderTodayCard();

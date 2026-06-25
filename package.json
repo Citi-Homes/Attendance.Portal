@@ -9,9 +9,21 @@
     "verify": "node scripts/verify-api.mjs",
     "build:config": "node scripts/build-config.mjs",
     "build:pages": "node scripts/build-pages.mjs",
+    "build:android:www": "node scripts/build-android-www.mjs",
+    "cap:sync": "npm run build:android:www && npx cap sync android",
+    "cap:open": "npx cap open android",
+    "android:debug": "npm run cap:sync && cd android && gradlew assembleDebug",
     "prepare:github-secrets": "node scripts/prepare-github-secrets.mjs"
   },
+  "dependencies": {
+    "@capacitor/android": "^7.2.0",
+    "@capacitor/core": "^7.2.0",
+    "@capacitor/geolocation": "^7.1.1",
+    "@capacitor/splash-screen": "^7.0.1",
+    "@capacitor/status-bar": "^7.0.1"
+  },
   "devDependencies": {
+    "@capacitor/cli": "^7.2.0",
     "pg": "^8.16.3"
   }
 }

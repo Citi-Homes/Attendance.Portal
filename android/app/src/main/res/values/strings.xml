@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Citi Homes Attendance</string>
+    <string name="title_activity_main">Citi Homes Attendance</string>
+    <string name="package_name">ae.citihomes.attendance</string>
+    <string name="custom_url_scheme">ae.citihomes.attendance</string>
+</resources>

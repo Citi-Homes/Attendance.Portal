@@ -1,7 +1,14 @@
 config.js
 .env
 dist/
+www/
 node_modules/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
 .cursor/
 .DS_Store
 Thumbs.db
+*.apk
+*.aab

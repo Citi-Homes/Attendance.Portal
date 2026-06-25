@@ -1,0 +1,21 @@
+{
+  "appId": "ae.citihomes.attendance",
+  "appName": "Citi Homes Attendance",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "Geolocation": {
+      "requirePermission": true
+    },
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}
