@@ -91,16 +91,19 @@ const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
 
 function getConfig() {
-  return typeof window !== "undefined" && window.ATT_CONFIG ? window.ATT_CONFIG : null;
+  const prod = typeof window !== "undefined" && window.ATT_CONFIG_PRODUCTION ? window.ATT_CONFIG_PRODUCTION : {};
+  const cfg = typeof window !== "undefined" && window.ATT_CONFIG ? window.ATT_CONFIG : {};
+  if (!Object.keys(prod).length && !Object.keys(cfg).length) return null;
+  return Object.assign({}, prod, cfg);
 }
 
 function ensureConfig() {
   const cfg = getConfig();
   if (!cfg || !cfg.sessionSecret) {
-    throw new Error("Missing config.js — copy config.example.js to config.js and set credentials.");
+    throw new Error("App not configured for login. Use the GitHub Pages URL after deploy secrets are set.");
   }
-  if (!isLocalDevHost() && (!cfg.supabaseUrl || !cfg.supabaseAnonKey)) {
-    throw new Error("Supabase is required on the live site. Redeploy with config.production.js or GitHub secrets.");
+  if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+    throw new Error("Supabase is required. All attendance is stored in the cloud only.");
   }
   return cfg;
 }
@@ -374,11 +377,16 @@ function decimalHours(mins){
   return (mins/60).toFixed(2);
 }
 
-// ── Records storage (Supabase API + local fallback) ───────────────────────────
-const REC_KEY = 'att_v3_records';
+// ── Records storage (Supabase only — no local drive / localStorage) ───────────
 const REC_TABLE = 'attendance_records';
 let _recordsCache = null;
 let _recordDateColumn = null;
+
+function purgeLegacyLocalRecords() {
+  try { localStorage.removeItem('att_v3_records'); } catch (_) {}
+  try { localStorage.removeItem('att_session'); } catch (_) {}
+}
+purgeLegacyLocalRecords();
 
 function supabaseConfig() {
   const cfg = getConfig();
@@ -442,22 +450,8 @@ function rowToRecord(row) {
   return rec;
 }
 
-function loadRecordsLocal() {
-  try { return JSON.parse(localStorage.getItem(REC_KEY) || '[]'); }
-  catch { return []; }
-}
-
-function saveRecordsLocal(recs) {
-  localStorage.setItem(REC_KEY, JSON.stringify(recs));
-}
-
 function loadRecords() {
-  return _recordsCache ? _recordsCache.slice() : loadRecordsLocal();
-}
-
-function saveRecords(recs) {
-  _recordsCache = recs.slice();
-  saveRecordsLocal(recs);
+  return _recordsCache ? _recordsCache.slice() : [];
 }
 
 function isRemoteStorageEnabled() {
@@ -465,19 +459,15 @@ function isRemoteStorageEnabled() {
 }
 
 function requireSupabaseStorage() {
-  if (!supabaseConfig() && !isLocalDevHost()) {
-    throw new Error("Supabase is required for the live site. Check config.js on GitHub Pages deploy.");
+  if (!supabaseConfig()) {
+    throw new Error('Supabase is required. Open https://citi-homes.github.io/Attendance.Portal/ — data is not saved on this device.');
   }
 }
 
 async function loadRecordsAsync() {
   requireSupabaseStorage();
-  const sb = supabaseConfig();
-  if (!sb) {
-    _recordsCache = loadRecordsLocal();
-    return _recordsCache.slice();
-  }
   await probeRecordDateColumn();
+  const sb = supabaseConfig();
   const res = await fetch(sb.url + '/rest/v1/' + REC_TABLE + '?select=*&order=id.desc', {
     headers: sbHeaders()
   });
@@ -488,15 +478,8 @@ async function loadRecordsAsync() {
 
 async function upsertRecordAsync(rec) {
   requireSupabaseStorage();
-  const sb = supabaseConfig();
-  if (!sb) {
-    const recs = loadRecordsLocal();
-    const idx = recs.findIndex(r => r.id === rec.id);
-    if (idx >= 0) recs[idx] = rec; else recs.unshift(rec);
-    saveRecords(recs);
-    return rec;
-  }
   await probeRecordDateColumn();
+  const sb = supabaseConfig();
   const res = await fetch(sb.url + '/rest/v1/' + REC_TABLE, {
     method: 'POST',
     headers: sbHeaders({ Prefer: 'resolution=merge-duplicates,return=representation' }),
@@ -514,17 +497,8 @@ async function upsertRecordAsync(rec) {
 async function upsertRecordsBulkAsync(recs) {
   if (!recs.length) return;
   requireSupabaseStorage();
-  const sb = supabaseConfig();
-  if (!sb) {
-    let all = loadRecordsLocal();
-    recs.forEach(rec => {
-      const idx = all.findIndex(r => r.id === rec.id);
-      if (idx >= 0) all[idx] = rec; else all.unshift(rec);
-    });
-    saveRecords(all);
-    return;
-  }
   await probeRecordDateColumn();
+  const sb = supabaseConfig();
   const res = await fetch(sb.url + '/rest/v1/' + REC_TABLE, {
     method: 'POST',
     headers: sbHeaders({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
@@ -537,11 +511,6 @@ async function upsertRecordsBulkAsync(recs) {
 async function deleteRecordAsync(id) {
   requireSupabaseStorage();
   const sb = supabaseConfig();
-  if (!sb) {
-    const recs = loadRecordsLocal().filter(r => r.id !== id);
-    saveRecords(recs);
-    return;
-  }
   const res = await fetch(sb.url + '/rest/v1/' + REC_TABLE + '?id=eq.' + id, {
     method: 'DELETE',
     headers: sbHeaders()
@@ -614,24 +583,9 @@ async function checkRemoteStorageHealth() {
   }
 }
 
-async function migrateLocalRecordsToCloud(options) {
-  const sb = supabaseConfig();
-  if (!sb) return { migrated: 0, skipped: true };
-  const local = loadRecordsLocal();
-  if (!local.length) return { migrated: 0, skipped: true };
-
-  const remote = await loadRecordsAsync();
-  if (remote.length > 0) return { migrated: 0, skipped: true, reason: 'remote_has_data' };
-
-  const ask = options && options.silent ? true : confirm(
-    'Found ' + local.length + ' attendance record(s) saved only on this device.\n\nUpload them to the cloud now?'
-  );
-  if (!ask) return { migrated: 0, cancelled: true };
-
-  await upsertRecordsBulkAsync(local);
-  localStorage.removeItem(REC_KEY);
-  _recordsCache = null;
-  return { migrated: local.length };
+async function migrateLocalRecordsToCloud() {
+  purgeLegacyLocalRecords();
+  return { migrated: 0, skipped: true, reason: 'cloud_only' };
 }
 
 function setAppLoading(on, message) {
@@ -658,7 +612,7 @@ function showStorageBanner(health) {
     el.innerHTML = '<span>Database permissions missing — run <code>supabase-fix-permissions.sql</code> in Supabase SQL Editor (see setup.html).</span>';
     el.className = 'storage-banner storage-banner-warn open';
   } else if (health.reason === 'not_configured') {
-    el.innerHTML = '<span>Cloud storage not configured — copy <code>config.example.js</code> to <code>config.js</code> and add Supabase keys.</span>';
+    el.innerHTML = '<span>Cloud storage not configured — use the GitHub Pages app URL after deploy.</span>';
     el.className = 'storage-banner storage-banner-warn open';
   } else {
     el.innerHTML = '<span>Could not reach cloud storage. Check internet connection and refresh.</span>';

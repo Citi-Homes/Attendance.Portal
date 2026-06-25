@@ -40,7 +40,7 @@
     <div class="step-num">1</div>
     <div class="step-body">
       <div class="step-title">Configuration file</div>
-      <div class="step-desc"><code>config.js</code> must exist with Supabase URL and anon key.</div>
+      <div class="step-desc">Supabase URL and anon key (in <code>config.production.js</code> on GitHub). Login secrets are injected at deploy.</div>
       <div class="step-status pending" id="status-config">Checking…</div>
     </div>
   </div>
@@ -109,6 +109,7 @@ async function copySql(kind) {
 loadSqlTemplate('setup');
 </script>
 
+<script src="config.production.js"></script>
 <script src="config.js"></script>
 <script src="shared.js"></script>
 <script>
@@ -143,7 +144,7 @@ async function runChecks() {
 
   const cfg = getConfig();
   if (!cfg || !cfg.supabaseUrl || !cfg.supabaseAnonKey) {
-    setStatus('status-config', false, 'Missing — copy config.example.js to config.js and add Supabase keys');
+    setStatus('status-config', false, 'Missing Supabase keys — check config.production.js on GitHub');
     setStatus('status-table', false, 'Skipped');
     setStatus('status-api', false, 'Skipped');
     return;

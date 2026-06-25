@@ -11,6 +11,7 @@
 <body>
 <div id="app-loading" class="app-loading open"><div class="app-loading-inner"><div class="spinner"></div><div class="app-loading-msg">Loading dashboard…</div></div></div>
 <div id="storage-banner" class="storage-banner"></div>
+<script src="config.production.js"></script>
 <script src="config.js"></script>
 <script src="shared.js"></script>
 <script>const ADMIN_SESSION=requireAdmin();const ADMIN_CAN_WRITE=ADMIN_SESSION.adminMode!=='readonly';</script>
@@ -881,12 +882,7 @@ async function bootstrapAdmin(){
   try{
     const health = await checkRemoteStorageHealth();
     showStorageBanner(health);
-    if (health.ok) {
-      const mig = await migrateLocalRecordsToCloud();
-      if (mig.migrated > 0) {
-        alert('Uploaded ' + mig.migrated + ' record(s) from this device to the cloud.');
-      }
-    }
+    purgeLegacyLocalRecords();
     await reloadRecords();
   }catch(err){
     notifySaveError(err);

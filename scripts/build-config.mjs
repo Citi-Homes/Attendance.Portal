@@ -43,4 +43,5 @@ const out = `window.ATT_CONFIG = {
 `;
 
 fs.writeFileSync(path.join(root, "config.js"), out);
-console.log("config.js generated");
+// dist gets config.production.js (public) + config.js (auth secrets from CI)
+console.log("config.js generated for deploy");

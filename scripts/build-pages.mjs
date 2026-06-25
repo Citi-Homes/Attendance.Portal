@@ -18,6 +18,7 @@ const STATIC_FILES = [
   "shared.js",
   "styles.css",
   "web.config",
+  "config.production.js",
   "supabase-setup.sql",
   "supabase-fix-permissions.sql",
   "supabase-add-record-date.sql",

@@ -116,6 +116,7 @@ footer a:hover{text-decoration:underline}
   <footer id="login-footer"><a href="setup.html">First-time setup</a> · Citi Homes</footer>
 </div>
 
+<script src="config.production.js"></script>
 <script src="config.js"></script>
 <script src="shared.js"></script>
 <script>
@@ -225,7 +226,7 @@ async function doAdminLogin() {
 }
 
 if (!getConfig()) {
-  showErr("Missing config.js — copy config.example.js to config.js before signing in.");
+  showErr("Login not configured on this deploy. Use https://citi-homes.github.io/Attendance.Portal/ after GitHub Actions secrets are set.");
 } else {
   redirectIfLoggedIn();
 }

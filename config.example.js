@@ -8,10 +8,10 @@
 window.ATT_CONFIG = {
   sessionSecret: "REPLACE_WITH_RANDOM_64_CHAR_HEX",
 
-  // Live app URL (GitHub Pages)
+  // Live app URL (GitHub Pages) — use this URL; data is in Supabase only
   appUrl: "https://citi-homes.github.io/Attendance.Portal/",
 
-  // Supabase — cloud database (run supabase-setup.sql in SQL Editor)
+  // Supabase — all attendance records stored here (not on local devices)
   supabaseUrl: "https://YOUR_PROJECT.supabase.co",
   supabaseAnonKey: "YOUR_SUPABASE_ANON_KEY",
 

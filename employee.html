@@ -10,6 +10,7 @@
 <body>
 <div id="app-loading" class="app-loading open"><div class="app-loading-inner"><div class="spinner"></div><div class="app-loading-msg">Loading attendance…</div></div></div>
 <div id="storage-banner" class="storage-banner"></div>
+<script src="config.production.js"></script>
 <script src="config.js"></script>
 <script src="shared.js"></script>
 <script>const SESSION=requireEmployee();const EMP=SESSION.emp;const EMPCODE=SESSION.empCode;</script>
@@ -768,6 +769,7 @@ async function bootstrapEmployee(){
   }finally{
     setAppLoading(false);
   }
+  purgeLegacyLocalRecords();
   prefetchSilentLocation();
   populateMonthFilters();
   renderTodayCard();
