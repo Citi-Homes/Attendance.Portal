@@ -155,7 +155,7 @@
       <div class="card-header" style="margin-bottom:16px">
         <div>
           <div class="card-title">Manual Timesheet</div>
-          <div class="card-sub">Import attendance from Excel for <strong>01 Jun 2026</strong> – <strong>22 Jun 2026</strong></div>
+          <div class="card-sub">Import attendance from Excel for <strong>01-06-2026</strong> – <strong>30-06-2026</strong> (dd-mm-yyyy)</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-sm btn-primary" onclick="downloadManualTsTemplate()">
@@ -171,7 +171,7 @@
         <div class="card-title" style="margin-bottom:10px">How to use</div>
         <div style="font-size:13px;color:var(--text2);line-height:1.7">
           <ol style="margin:0;padding-left:18px">
-            <li>Click <strong>Download Excel Template</strong> — it includes every employee and each day from 01–22 Jun 2026.</li>
+            <li>Click <strong>Download Excel Template</strong> — it includes every employee and each day from <strong>01-06-2026</strong> to <strong>30-06-2026</strong> (date format <code>dd-mm-yyyy</code>).</li>
             <li>Fill in <strong>Punch In</strong> and <strong>Punch Out</strong> times (e.g. <code>08:30</code> or <code>08:30:00</code>). Sundays are weekly off and are not included in the template.</li>
             <li>Upload the completed file below. Rows without a punch-in time are skipped.</li>
             <li>Existing records for the same employee and date will be updated.</li>
@@ -624,7 +624,7 @@ function downloadManualTsTemplate(){
     const emp=EMPLOYEES[code];
     dates.forEach(dateISO=>{
       rows.push({
-        Date:dateISO,
+        Date:isoToDDMMYYYY(dateISO),
         'Emp Code':code,
         Name:emp.name,
         Category:'Office',
@@ -639,7 +639,7 @@ function downloadManualTsTemplate(){
   ws['!cols']=[{wch:12},{wch:10},{wch:28},{wch:12},{wch:10},{wch:10},{wch:20},{wch:12}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Timesheet Jun 2026');
-  XLSX.writeFile(wb,'CitiHomes_Timesheet_Jun01-22_2026.xlsx');
+  XLSX.writeFile(wb,'CitiHomes_Timesheet_Jun01-30_2026.xlsx');
 }
 
 function exportManualTsExcel(){
@@ -651,7 +651,7 @@ function exportManualTsExcel(){
     const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'';
     const m=calcHours(r.punchIn,r.punchOut);
     return {
-      Date:dateISO,
+      Date:isoToDDMMYYYY(dateISO),
       'Emp Code':r.empCode,
       Name:r.empName,
       Category:r.category,
@@ -703,7 +703,7 @@ function parseTsRows(sheetRows){
     if(!r.date&&!r.empCode&&!r.punchIn) return;
     const dateISO=parseFlexibleDate(r.date);
     if(!dateISO){errors.push(`Row ${line}: invalid date "${r.date}"`);return;}
-    if(!isInManualTsRange(dateISO)){skipped.push(`Row ${line}: date ${dateISO} outside 01 Jun – 22 Jun 2026`);return;}
+    if(!isInManualTsRange(dateISO)){skipped.push(`Row ${line}: date ${isoToDDMMYYYY(dateISO)} outside ${manualTsRangeLabel()}`);return;}
     if(isWeeklyOffDateISO(dateISO)){skipped.push(`Row ${line}: ${dateISO} is Sunday (weekly off)`);return;}
     const code=r.empCode.toUpperCase();
     const emp=EMPLOYEES[code];
@@ -736,7 +736,7 @@ function handleTsFile(file){
       const data=new Uint8Array(e.target.result);
       const wb=XLSX.read(data,{type:'array'});
       const sheet=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(sheet,{defval:'',raw:false,dateNF:'yyyy-mm-dd'});
+      const rows=XLSX.utils.sheet_to_json(sheet,{defval:'',raw:false,dateNF:'dd-mm-yyyy'});
       if(!rows.length){alert('No data found in the file.');return;}
       const parsed=parseTsRows(rows);
       tsPendingImport=parsed.valid;
@@ -769,7 +769,7 @@ function showTsPreview(parsed){
     const inT=r.punchIn.split('·')[1]?.trim()||'';
     const outT=r.punchOut?r.punchOut.split('·')[1]?.trim():'—';
     html+=`<tr>
-      <td style="font-size:11px">${r.dateISO}</td>
+      <td style="font-size:11px">${isoToDDMMYYYY(r.dateISO)}</td>
       <td style="font-family:var(--mono);font-size:11px">${r.empCode}</td>
       <td style="font-size:12px">${r.empName}</td>
       <td>${catBadge(r.category)}</td>
@@ -804,7 +804,9 @@ async function confirmTsImport(){
       rec.category=row.category;
       rec.status=row.status;
       rec.remarks=row.remarks;
+      rec.recordDate=row.dateISO;
       rec.source='manual-timesheet';
+      ensureRecordDates(rec);
       toSave.push(rec);
       updated++;
     }else{
@@ -812,8 +814,10 @@ async function confirmTsImport(){
         id:nextRecordId(allRecords),
         empCode:row.empCode,empName:row.empName,designation:row.designation,department:row.department,
         category:row.category,punchIn:row.punchIn,punchOut:row.punchOut,remarks:row.remarks,
-        locIn:null,locOut:null,status:row.status,extra:{},source:'manual-timesheet'
+        locIn:null,locOut:null,status:row.status,extra:{},source:'manual-timesheet',
+        recordDate:row.dateISO
       };
+      ensureRecordDates(rec);
       allRecords.unshift(rec);
       toSave.push(rec);
       added++;
@@ -849,7 +853,7 @@ function renderManualTs(){
     const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'—';
     const mins=calcHours(r.punchIn,r.punchOut);
     html+=`<tr>
-      <td style="font-size:11px;white-space:nowrap">${dateISO}</td>
+      <td style="font-size:11px;white-space:nowrap">${isoToDDMMYYYY(dateISO)}</td>
       <td style="font-family:var(--mono);font-size:11px">${r.empCode}</td>
       <td style="font-size:12px;font-weight:500">${r.empName}</td>
       <td>${catBadge(r.category)}</td>

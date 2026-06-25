@@ -635,7 +635,17 @@ function showStorageBanner(health) {
 }
 
 // ── Manual timesheet (admin Excel import) ────────────────────────────────────
-const MANUAL_TS_RANGE={start:'2026-06-01',end:'2026-06-22'};
+const MANUAL_TS_RANGE={start:'2026-06-01',end:'2026-06-30'};
+
+function isoToDDMMYYYY(iso){
+  if(!iso||!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso||'';
+  const [y,m,d]=iso.split('-');
+  return `${d}-${m}-${y}`;
+}
+
+function manualTsRangeLabel(){
+  return isoToDDMMYYYY(MANUAL_TS_RANGE.start)+' – '+isoToDDMMYYYY(MANUAL_TS_RANGE.end);
+}
 
 function nextRecordId(recs){
   if(!recs.length) return Date.now();
@@ -654,11 +664,10 @@ function parseFlexibleDate(str){
   }
   const s=String(str).trim();
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const slash=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if(slash){
-    const a=parseInt(slash[1],10),b=parseInt(slash[2],10),y=parseInt(slash[3],10);
-    const day=a>12?a:b,m=a>12?b:a;
-    return dateISOFromParts(y,m,day);
+  const dmy=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(dmy){
+    const day=parseInt(dmy[1],10), m=parseInt(dmy[2],10), y=parseInt(dmy[3],10);
+    if(m>=1&&m<=12&&day>=1&&day<=31) return dateISOFromParts(y,m,day);
   }
   const named=s.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
   if(named){
