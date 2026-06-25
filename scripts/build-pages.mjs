@@ -19,6 +19,7 @@ const STATIC_FILES = [
   "styles.css",
   "web.config",
   "config.production.js",
+  "config.auth.js",
   "supabase-setup.sql",
   "supabase-fix-permissions.sql",
   "supabase-add-record-date.sql",
@@ -54,8 +55,7 @@ if (hasSecrets) {
   fs.copyFileSync(configPath, path.join(dist, "config.js"));
   console.log("Using local config.js for Pages build");
 } else {
-  console.error("No config.js and no CI secrets — cannot build for deploy");
-  process.exit(1);
+  console.log("No CI secrets — using config.production.js + config.auth.js from repo");
 }
 
 console.log("dist/ ready for GitHub Pages (" + fs.readdirSync(dist).length + " items)");

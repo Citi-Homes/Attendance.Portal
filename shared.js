@@ -92,9 +92,15 @@ const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
 
 function getConfig() {
   const prod = typeof window !== "undefined" && window.ATT_CONFIG_PRODUCTION ? window.ATT_CONFIG_PRODUCTION : {};
+  const auth = typeof window !== "undefined" && window.ATT_CONFIG_AUTH ? window.ATT_CONFIG_AUTH : {};
   const cfg = typeof window !== "undefined" && window.ATT_CONFIG ? window.ATT_CONFIG : {};
-  if (!Object.keys(prod).length && !Object.keys(cfg).length) return null;
-  return Object.assign({}, prod, cfg);
+  if (!Object.keys(prod).length && !Object.keys(auth).length && !Object.keys(cfg).length) return null;
+  return Object.assign({}, prod, auth, cfg);
+}
+
+function isLoginConfigured() {
+  const cfg = getConfig();
+  return !!(cfg && cfg.sessionSecret && cfg.employeePassHashes && cfg.admins && cfg.admins.length);
 }
 
 function ensureConfig() {
