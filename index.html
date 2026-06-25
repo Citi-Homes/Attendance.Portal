@@ -111,6 +111,7 @@ footer a:hover{text-decoration:underline}
         <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
         Admin Sign in
       </button>
+      <p style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.5">Use the <b>Admin</b> tab above. Email must match exactly (e.g. <code>umer@citihomes.ae</code>).</p>
     </div>
   </div>
   <footer id="login-footer"><a href="setup.html">First-time setup</a> · Citi Homes</footer>
@@ -187,10 +188,11 @@ async function doEmployeeLogin() {
     }
     clearLoginAttempts();
     setSession({ role: "employee", empCode: code });
-    navigateTo("employee");
+    navigateReplace("employee");
   } catch (e) {
     console.error(e);
-    showErr(isLoginConfigured() ? "Login failed. Please refresh and try again." : "Login credentials missing on this deploy. Wait for GitHub to update, then refresh.");
+    const msg = e && e.message ? String(e.message) : "";
+    showErr(msg.includes("Login is not configured") ? msg : (isLoginConfigured() ? "Login failed. Clear browser cache, hard refresh (Ctrl+Shift+R), and try again." : "Login credentials missing on this deploy."));
   } finally {
     loginBusy = false;
   }
@@ -219,10 +221,11 @@ async function doAdminLogin() {
     }
     clearLoginAttempts();
     setSession({ role: "admin", adminMode: auth.mode });
-    navigateTo("admin");
+    navigateReplace("admin");
   } catch (e) {
     console.error(e);
-    showErr(isLoginConfigured() ? "Login failed. Please refresh and try again." : "Login credentials missing on this deploy. Wait for GitHub to update, then refresh.");
+    const msg = e && e.message ? String(e.message) : "";
+    showErr(msg.includes("Login is not configured") ? msg : (isLoginConfigured() ? "Login failed. Clear browser cache, hard refresh (Ctrl+Shift+R), and try again." : "Login credentials missing on this deploy."));
   } finally {
     loginBusy = false;
   }

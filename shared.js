@@ -103,6 +103,14 @@ function isLoginConfigured() {
   return !!(cfg && cfg.sessionSecret && cfg.employeePassHashes && cfg.admins && cfg.admins.length);
 }
 
+function ensureLoginConfig() {
+  const cfg = getConfig();
+  if (!cfg || !cfg.sessionSecret) {
+    throw new Error("Login is not configured on the server.");
+  }
+  return cfg;
+}
+
 function ensureConfig() {
   const cfg = getConfig();
   if (!cfg || !cfg.sessionSecret) {
@@ -178,14 +186,14 @@ function loginLockoutMessage() {
 }
 
 async function verifyEmployeePassword(code, password) {
-  const cfg = ensureConfig();
+  const cfg = ensureLoginConfig();
   const hash = cfg.employeePassHashes && cfg.employeePassHashes[code];
   if (!hash) return false;
   return (await sha256(password)) === hash;
 }
 
 async function verifyAdminCredentials(user, password) {
-  const cfg = ensureConfig();
+  const cfg = ensureLoginConfig();
   const admins = cfg.admins || (cfg.admin ? [cfg.admin] : []);
   if (!admins.length) return null;
   const normalizedUser = String(user || "").trim().toLowerCase();
@@ -239,7 +247,7 @@ function getSession() {
 }
 
 function setSession(data) {
-  const cfg = ensureConfig();
+  const cfg = ensureLoginConfig();
   const payload = {
     role: data.role,
     empCode: data.empCode || null,
