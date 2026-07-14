@@ -471,3 +471,92 @@ body::after{
   .topbar-mid{gap:6px;flex-wrap:wrap;justify-content:flex-end}
   .btn-download-app{padding:7px 9px;font-size:12px}
 }
+
+/* Mobile and app responsive polish */
+html{
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+  background:var(--bg);
+}
+body{
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:geometricPrecision;
+}
+img,svg,canvas,video{max-width:100%}
+.topbar{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+.btn-download-app{min-height:34px;display:inline-flex;align-items:center;justify-content:center;text-align:center;line-height:1.15}
+.table-wrap,.records-table-wrap,.data-table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{max-width:100%}
+.card,.panel,.stat-card,.emp-profile,.modal-content{max-width:100%}
+
+@media(max-width:900px){
+  .topbar{height:auto;min-height:58px;padding-top:max(10px,env(safe-area-inset-top));padding-bottom:10px;align-items:flex-start;flex-wrap:wrap;gap:10px}
+  .topbar-brand{min-width:0;flex:1 1 100%;gap:10px}
+  .brand-name{font-size:13px;line-height:1.2;white-space:normal;overflow-wrap:anywhere}
+  .topbar-mid{width:100%;margin-left:0;display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px}
+  .btn-download-app{grid-column:1 / -1;width:100%;min-height:40px;font-size:13px;padding:10px 12px;border-radius:8px}
+  #live-clock{justify-self:stretch;text-align:center;min-height:34px;display:flex;align-items:center;justify-content:center;font-size:11px;padding:6px 8px;white-space:normal}
+  .topbar-mid .btn-ghost{min-height:34px;padding:7px 10px;white-space:nowrap}
+  .layout{display:block;min-height:auto}
+  .sidebar{position:sticky;top:0;z-index:80;border-right:0;border-bottom:1px solid var(--border);padding:10px;background:rgba(255,255,255,.32);backdrop-filter:blur(24px) saturate(1.25);-webkit-backdrop-filter:blur(24px) saturate(1.25)}
+  .emp-profile{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"avatar name" "avatar code" "avatar dept";text-align:left;gap:2px 10px;padding:10px;margin-bottom:10px}
+  .emp-avatar{grid-area:avatar;margin:0;width:42px;height:42px}
+  .emp-name{grid-area:name;margin:0;font-size:13px;align-self:end}
+  .emp-code-pill{grid-area:code;justify-self:start;margin:0}
+  .emp-dept{grid-area:dept;margin:0;font-size:11px}
+  .nav-section{margin:0 0 8px}
+  .nav-label{padding:0 2px;margin-bottom:6px}
+  .nav-section{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none}
+  .nav-section::-webkit-scrollbar{display:none}
+  .nav-label{flex:0 0 auto;display:flex;align-items:center}
+  .nav-item{flex:0 0 auto;margin:0;padding:8px 10px;min-height:36px;white-space:nowrap;border:1px solid rgba(255,255,255,.34);background:rgba(255,255,255,.24)}
+  .main-content{padding:14px max(12px,env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));overflow-x:hidden}
+  .page-header,.section-head,.card-head{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+  .grid,.stats-grid,.cards-grid,.form-grid{grid-template-columns:1fr !important;gap:12px}
+  .actions,.toolbar,.filters,.row-actions{display:flex;flex-wrap:wrap;gap:8px}
+  .actions .btn,.toolbar .btn,.filters .btn,.row-actions .btn{flex:1 1 auto;min-width:120px}
+}
+
+@media(max-width:640px){
+  body{font-size:13px;line-height:1.45}
+  .topbar{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
+  .brand-icon{width:28px;height:28px;border-radius:7px}
+  .brand-name{text-transform:uppercase;font-size:12px;letter-spacing:.2px}
+  .topbar-mid{grid-template-columns:1fr 92px}
+  .btn-download-app{font-size:12px;padding:9px 10px;min-height:38px}
+  #live-clock{font-size:10px;line-height:1.25;border-radius:7px}
+  .topbar-mid .btn-ghost{font-size:11px;padding:7px 8px;justify-content:center}
+  .topbar-mid .btn-ghost svg{display:none}
+  .sidebar{padding:8px}
+  .nav-item{font-size:12px;padding:7px 9px}
+  .nav-item svg{width:14px;height:14px}
+  .main-content{padding-top:12px}
+  .card,.panel,.stat-card,.emp-profile{border-radius:8px;padding:12px}
+  h1{font-size:22px;line-height:1.18}
+  h2{font-size:18px;line-height:1.22}
+  h3{font-size:15px;line-height:1.25}
+  .btn{min-height:38px;justify-content:center}
+  input,select,textarea{font-size:16px;max-width:100%}
+  table{font-size:12px;min-width:620px}
+  th,td{padding:8px 10px}
+  .modal-content{width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow:auto}
+}
+
+@media(max-width:420px){
+  .topbar-mid{grid-template-columns:1fr;gap:7px}
+  #live-clock,.topbar-mid .btn-ghost{width:100%}
+  .btn-download-app{white-space:normal}
+  .emp-profile{grid-template-columns:38px 1fr}
+  .emp-avatar{width:38px;height:38px}
+  .nav-item{font-size:11px;padding:7px 8px}
+  .main-content{padding-left:10px;padding-right:10px}
+  .card,.panel,.stat-card{padding:10px}
+}
+
+@media(min-width:1600px){
+  body{font-size:15px}
+  .main-content{max-width:1680px;margin:0 auto;width:100%}
+  .layout{grid-template-columns:250px 1fr}
+  .topbar{padding-left:28px;padding-right:28px}
+}
