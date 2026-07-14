@@ -608,7 +608,7 @@ table{max-width:100%}
     align-items:flex-start !important;
     padding-top:max(10px,env(safe-area-inset-top)) !important;
     padding-bottom:12px !important;
-    margin-bottom:14px !important;
+    margin-bottom:16px !important;
     overflow:visible !important;
   }
   .topbar-brand{
@@ -618,19 +618,19 @@ table{max-width:100%}
     width:100% !important;
     margin-left:0 !important;
     display:grid !important;
-    grid-template-columns:minmax(118px,1fr) minmax(96px,.8fr) auto !important;
+    grid-template-columns:minmax(108px,128px) minmax(118px,1fr) minmax(54px,64px) !important;
     align-items:stretch !important;
     gap:6px !important;
   }
   .btn-download-app{
     grid-column:auto !important;
-    width:auto !important;
-    max-width:none !important;
+    width:100% !important;
+    max-width:128px !important;
     min-width:0 !important;
     min-height:34px !important;
-    padding:6px 8px !important;
-    font-size:10px !important;
-    line-height:1.15 !important;
+    padding:5px 7px !important;
+    font-size:9.5px !important;
+    line-height:1.12 !important;
     white-space:normal !important;
     text-align:center !important;
     justify-content:center !important;
@@ -647,9 +647,11 @@ table{max-width:100%}
     justify-content:center !important;
   }
   .topbar-mid .btn-ghost{
+    width:100% !important;
+    min-width:0 !important;
     min-height:34px !important;
-    padding:6px 8px !important;
-    font-size:10px !important;
+    padding:6px 6px !important;
+    font-size:9.5px !important;
     line-height:1 !important;
     white-space:nowrap !important;
     justify-content:center !important;
@@ -661,33 +663,34 @@ table{max-width:100%}
     position:relative !important;
     top:auto !important;
     margin-top:0 !important;
-    margin-bottom:16px !important;
+    margin-bottom:18px !important;
   }
   .main-content{
-    padding-top:18px !important;
+    padding-top:20px !important;
   }
   #mark,.section.active,.content-section.active,.page-section.active{
-    scroll-margin-top:24px !important;
+    scroll-margin-top:26px !important;
   }
 }
 @media(max-width:420px){
   .topbar-mid{
-    grid-template-columns:minmax(104px,1fr) minmax(82px,.75fr) 64px !important;
+    grid-template-columns:minmax(96px,112px) minmax(112px,1fr) minmax(52px,60px) !important;
     gap:5px !important;
   }
   .btn-download-app{
-    font-size:9px !important;
-    padding:5px 6px !important;
+    max-width:112px !important;
+    font-size:8.8px !important;
+    padding:5px 5px !important;
   }
   #live-clock{
-    font-size:8.5px !important;
+    font-size:8.4px !important;
     padding:5px 4px !important;
   }
   .topbar-mid .btn-ghost{
-    font-size:9px !important;
-    padding:5px 6px !important;
+    font-size:8.8px !important;
+    padding:5px 4px !important;
   }
   .main-content{
-    padding-top:20px !important;
+    padding-top:22px !important;
   }
 }
