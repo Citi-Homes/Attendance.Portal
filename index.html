@@ -68,6 +68,80 @@ footer{margin-top:28px;text-align:center;font-size:11px;color:var(--text3)}
 footer a{color:var(--accent);text-decoration:none}
 footer a:hover{text-decoration:underline}
 </style>
+  /* Full liquid glass login override */
+:root{
+  --bg:#f4f0e8 !important;
+  --surface:rgba(255,255,255,.34) !important;
+  --surface2:rgba(255,255,255,.24) !important;
+  --border:rgba(255,255,255,.46) !important;
+  --border2:rgba(255,255,255,.58) !important;
+  --text:#211a12 !important;
+  --text2:#6d6256 !important;
+  --text3:#9a8d7d !important;
+  --tab:rgba(255,255,255,.44) !important;
+  --tab-dim:rgba(255,255,255,.56) !important;
+  --tab-text:#211a12 !important;
+  --accent:#b8945e !important;
+  --accent-bg:rgba(255,255,255,.34) !important;
+}
+body{
+  background:#f4f0e8 !important;
+  color:var(--text) !important;
+  align-items:flex-end !important;
+  padding:34px !important;
+}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-2;
+  background:linear-gradient(90deg,rgba(8,7,6,.22),rgba(244,240,232,.14) 38%,rgba(244,240,232,.9) 68%),
+    url("https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1920&q=80") center/cover no-repeat !important;
+}
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  background:
+    radial-gradient(circle at 18% 10%,rgba(255,255,255,.56),transparent 26%),
+    radial-gradient(circle at 78% 18%,rgba(184,148,94,.22),transparent 34%),
+    linear-gradient(180deg,rgba(255,250,242,.48),rgba(244,240,232,.82)) !important;
+}
+.login-wrap{
+  margin-right:min(7vw,88px) !important;
+  max-width:455px !important;
+}
+.card,
+.tabs,
+.tab,
+.field input,
+.field select,
+.btn-full,
+.err{
+  background:linear-gradient(135deg,rgba(255,255,255,.56),rgba(255,255,255,.22)) !important;
+  color:var(--text) !important;
+  border:1px solid rgba(255,255,255,.54) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.76),0 22px 60px rgba(61,48,33,.14) !important;
+  backdrop-filter:blur(26px) saturate(1.35) !important;
+  -webkit-backdrop-filter:blur(26px) saturate(1.35) !important;
+}
+.tab.active,
+.btn-full{
+  background:linear-gradient(135deg,rgba(255,255,255,.68),rgba(184,148,94,.26)) !important;
+  color:#211a12 !important;
+}
+.brand h1,
+.brand p,
+.field label,
+.hint,
+footer{
+  color:var(--text) !important;
+}
+@media(max-width:760px){
+  body{align-items:center !important;padding:20px !important}
+  .login-wrap{margin-right:0 !important}
+}
 </head>
 <body>
 <div class="login-wrap">
