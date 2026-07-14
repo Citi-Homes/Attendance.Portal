@@ -597,3 +597,97 @@ table{max-width:100%}
   .sidebar{margin-bottom:14px}
   .main-content{padding-top:18px !important}
 }
+
+/* Mobile app compact header row */
+@media(max-width:900px){
+  .topbar{
+    position:relative !important;
+    top:auto !important;
+    height:auto !important;
+    min-height:0 !important;
+    align-items:flex-start !important;
+    padding-top:max(10px,env(safe-area-inset-top)) !important;
+    padding-bottom:12px !important;
+    margin-bottom:14px !important;
+    overflow:visible !important;
+  }
+  .topbar-brand{
+    flex:1 1 100% !important;
+  }
+  .topbar-mid{
+    width:100% !important;
+    margin-left:0 !important;
+    display:grid !important;
+    grid-template-columns:minmax(118px,1fr) minmax(96px,.8fr) auto !important;
+    align-items:stretch !important;
+    gap:6px !important;
+  }
+  .btn-download-app{
+    grid-column:auto !important;
+    width:auto !important;
+    max-width:none !important;
+    min-width:0 !important;
+    min-height:34px !important;
+    padding:6px 8px !important;
+    font-size:10px !important;
+    line-height:1.15 !important;
+    white-space:normal !important;
+    text-align:center !important;
+    justify-content:center !important;
+    border-radius:7px !important;
+  }
+  #live-clock{
+    min-width:0 !important;
+    min-height:34px !important;
+    padding:5px 6px !important;
+    font-size:9px !important;
+    line-height:1.2 !important;
+    white-space:normal !important;
+    text-align:center !important;
+    justify-content:center !important;
+  }
+  .topbar-mid .btn-ghost{
+    min-height:34px !important;
+    padding:6px 8px !important;
+    font-size:10px !important;
+    line-height:1 !important;
+    white-space:nowrap !important;
+    justify-content:center !important;
+  }
+  .topbar-mid .btn-ghost svg{
+    display:none !important;
+  }
+  .sidebar{
+    position:relative !important;
+    top:auto !important;
+    margin-top:0 !important;
+    margin-bottom:16px !important;
+  }
+  .main-content{
+    padding-top:18px !important;
+  }
+  #mark,.section.active,.content-section.active,.page-section.active{
+    scroll-margin-top:24px !important;
+  }
+}
+@media(max-width:420px){
+  .topbar-mid{
+    grid-template-columns:minmax(104px,1fr) minmax(82px,.75fr) 64px !important;
+    gap:5px !important;
+  }
+  .btn-download-app{
+    font-size:9px !important;
+    padding:5px 6px !important;
+  }
+  #live-clock{
+    font-size:8.5px !important;
+    padding:5px 4px !important;
+  }
+  .topbar-mid .btn-ghost{
+    font-size:9px !important;
+    padding:5px 6px !important;
+  }
+  .main-content{
+    padding-top:20px !important;
+  }
+}
