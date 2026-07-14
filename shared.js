@@ -277,6 +277,7 @@ function requireEmployee() {
     navigateReplace("login");
     throw 0;
   }
+  setTimeout(initAppUpdateNotice, 0);
   return { role: "employee", empCode: s.empCode, emp: fresh };
 }
 
@@ -286,6 +287,7 @@ function requireAdmin() {
     navigateReplace("login");
     throw 0;
   }
+  setTimeout(initAppUpdateNotice, 0);
   return s;
 }
 
@@ -888,4 +890,72 @@ function statusBadge(s){
   if(s==='Completed'||s==='Recorded') return `<span class="badge badge-green">${s}</span>`;
   if(s==='In Progress') return `<span class="badge badge-orange">${s}</span>`;
   return `<span class="badge badge-blue">${s}</span>`;
+}
+// -- Android app update notice ------------------------------------------------
+const APP_UPDATE_INFO_URL = "https://mnfrbyzdubsgnhxrzuxx.supabase.co/storage/v1/object/public/apk-downloads/app-latest.json";
+const APP_DOWNLOAD_URL = "https://mnfrbyzdubsgnhxrzuxx.supabase.co/storage/v1/object/public/apk-downloads/CitiHomesAttendance.apk";
+let _appUpdateCheckStarted = false;
+
+function getNativeAppInfo() {
+  try {
+    if (window.CitiHomesApp && typeof window.CitiHomesApp.getVersionCode === "function") {
+      return {
+        platform: "android",
+        versionCode: Number(window.CitiHomesApp.getVersionCode()) || 0,
+        versionName: String(window.CitiHomesApp.getVersionName ? window.CitiHomesApp.getVersionName() : ""),
+        downloadUrl: String(window.CitiHomesApp.getDownloadUrl ? window.CitiHomesApp.getDownloadUrl() : APP_DOWNLOAD_URL)
+      };
+    }
+  } catch (_) {}
+  try {
+    const saved = JSON.parse(localStorage.getItem("citiHomesNativeApp") || "null");
+    if (saved && saved.platform === "android") return saved;
+  } catch (_) {}
+  if ((navigator.userAgent || "").includes("; wv)")) {
+    return { platform: "android", versionCode: 0, versionName: "", downloadUrl: APP_DOWNLOAD_URL };
+  }
+  return null;
+}
+
+async function initAppUpdateNotice() {
+  if (_appUpdateCheckStarted || typeof window === "undefined") return;
+  _appUpdateCheckStarted = true;
+  await new Promise(resolve => setTimeout(resolve, 700));
+  const installed = getNativeAppInfo();
+  if (!installed || installed.platform !== "android") return;
+  try {
+    const res = await fetch(APP_UPDATE_INFO_URL + "?v=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) return;
+    const latest = await res.json();
+    const latestCode = Number(latest.versionCode) || 0;
+    const installedCode = Number(installed.versionCode) || 0;
+    if (!latestCode || installedCode >= latestCode) return;
+    showAppUpdateNotice(installed, latest);
+  } catch (_) {}
+}
+
+function showAppUpdateNotice(installed, latest) {
+  if (document.getElementById("app-update-notice")) return;
+  const downloadUrl = latest.downloadUrl || installed.downloadUrl || APP_DOWNLOAD_URL;
+  const versionLabel = latest.versionName || latest.versionCode || "latest";
+  const notice = document.createElement("div");
+  notice.id = "app-update-notice";
+  notice.innerHTML = "<div class=\"app-update-copy\"><strong>App update available</strong><span>Please update Citi Homes Attendance to version " + versionLabel + ".</span></div><a class=\"app-update-btn\" href=\"" + downloadUrl + "\" download=\"CitiHomesAttendance.apk\">Update App</a>";
+  document.body.appendChild(notice);
+  ensureAppUpdateNoticeStyle();
+}
+
+function ensureAppUpdateNoticeStyle() {
+  if (document.getElementById("app-update-notice-style")) return;
+  const style = document.createElement("style");
+  style.id = "app-update-notice-style";
+  style.textContent = "#app-update-notice{position:fixed;left:16px;right:16px;bottom:max(16px,env(safe-area-inset-bottom));z-index:9999;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(255,255,255,.35)),linear-gradient(135deg,#fff1b8,#d8ad5f 52%,#fff7dc);border:1px solid rgba(255,238,184,.96);box-shadow:inset 0 1px 0 rgba(255,255,255,.92),0 18px 44px rgba(61,48,33,.24);backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);color:#20160a}#app-update-notice .app-update-copy{display:flex;flex-direction:column;min-width:0;line-height:1.25}#app-update-notice strong{font-size:13px;font-weight:800}#app-update-notice span{font-size:11.5px;color:#4d3a1e}#app-update-notice .app-update-btn{flex:0 0 auto;text-decoration:none!important;padding:10px 14px;border-radius:999px;background:#20160a;color:#fff;font-weight:800;font-size:12px;box-shadow:0 10px 24px rgba(32,22,10,.28)}@media(max-width:520px){#app-update-notice{left:10px;right:10px;align-items:stretch;flex-direction:column}#app-update-notice .app-update-btn{text-align:center}}";
+  document.head.appendChild(style);
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("citiHomesNativeAppReady", () => {
+    _appUpdateCheckStarted = false;
+    initAppUpdateNotice();
+  });
 }
