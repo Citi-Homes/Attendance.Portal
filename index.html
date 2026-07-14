@@ -204,25 +204,12 @@ footer{
       <p style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.5">Use the <b>Admin</b> tab above. Email must match exactly (e.g. <code>umer@citihomes.ae</code>).</p>
     </div>
   </div>
-  <footer id="login-footer"><a href="setup.html">First-time setup</a> · Citi Homes</footer>
 </div>
 
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
 <script src="shared.js"></script>
-<script>
-(function showPortalLinks(){
-  const cfg=getConfig();
-  const el=document.getElementById("login-footer");
-  if(!cfg||!el) return;
-  const app=cfg.appUrl||getAppBaseUrl();
-  const db=cfg.supabaseUrl||"";
-  el.innerHTML='<span style="display:block;margin-bottom:6px;font-size:11px;color:var(--text3)">App: <a href="'+app+'" style="color:var(--accent)">'+app+'</a></span>'
-    +(db?'<span style="display:block;font-size:11px;color:var(--text3)">Data: Supabase · <a href="'+db.replace(/\/$/,"")+'/project/default/editor" target="_blank" rel="noopener" style="color:var(--accent)">Open database</a></span>':"")
-    +'<span style="display:block;margin-top:8px"><a href="setup.html">First-time setup</a> · Citi Homes</span>';
-})();
-</script>
 <script>
 "use strict";
 
