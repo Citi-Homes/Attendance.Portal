@@ -225,3 +225,47 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .storage-banner.open{display:block}
 .storage-banner-warn{background:var(--orange-bg);border-bottom-color:var(--orange-border);color:var(--text)}
 .storage-banner code{font-family:var(--mono);font-size:11px;background:var(--surface3);padding:2px 6px;border-radius:4px}
+/* Citi Homes furniture unit visual refresh */
+:root{
+  --bg:#f4f0e8;
+  --surface:#fffaf2;
+  --surface2:#efe6d7;
+  --surface3:#e5d8c6;
+  --border:#ddcfbb;
+  --border2:#cbb99d;
+  --text:#17130f;
+  --text2:#5f574e;
+  --text3:#918577;
+  --accent:#b8945e;
+  --accent-dim:#8d7042;
+  --accent-bg:rgba(184,148,94,.16);
+  --accent-border:rgba(184,148,94,.38);
+  --tab:#b8945e;
+  --tab-dim:#8d7042;
+  --tab-text:#fffaf2;
+}
+
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-2;
+  background:linear-gradient(115deg,rgba(244,240,232,.96),rgba(244,240,232,.82)),
+    url("https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1920&q=80") center/cover no-repeat;
+}
+
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  background:linear-gradient(180deg,rgba(255,250,242,.94),rgba(244,240,232,.96));
+}
+
+.topbar{background:#090807;height:70px}
+.brand-name{letter-spacing:.08em;text-transform:uppercase;color:#fffaf2}
+.layout{grid-template-columns:250px 1fr;min-height:calc(100vh - 70px)}
+.sidebar{background:rgba(255,250,242,.86)}
+.card{background:rgba(255,250,242,.92);border-color:rgba(221,207,187,.82)}
+.nav-item.active,th{background:#090807;color:#fffaf2}
+.btn{border-radius:999px}
