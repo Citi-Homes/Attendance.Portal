@@ -20,7 +20,23 @@
   --mono:'JetBrains Mono',monospace;
   --r:10px;--r-lg:16px;
 }
-body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px} body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-2;
+  background:linear-gradient(90deg,rgba(8,7,6,.32),rgba(244,240,232,.18) 38%,rgba(244,240,232,.92) 68%),
+    url("https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1920&q=80") center/cover no-repeat;
+}
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  background:linear-gradient(180deg,rgba(8,7,6,.14),rgba(255,250,242,.58));
+}
+.login-wrap{margin-right:min(7vw,88px);max-width:455px}
+.card{background:rgba(255,250,242,.92);border-color:rgba(221,207,187,.86);box-shadow:0 24px 70px rgba(48,39,28,.18)}
 .login-wrap{width:100%;max-width:420px}
 .brand{text-align:center;margin-bottom:36px}
 .brand-icon{width:52px;height:52px;border-radius:14px;background:var(--tab);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 0 0 4px var(--accent-bg)}
