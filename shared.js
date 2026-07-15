@@ -277,8 +277,10 @@ function requireEmployee() {
     navigateReplace("login");
     throw 0;
   }
+  const session = { role: "employee", empCode: s.empCode, emp: fresh };
   setTimeout(initAppUpdateNotice, 0);
-  return { role: "employee", empCode: s.empCode, emp: fresh };
+  setTimeout(() => initEmployeeProfilePhoto(session), 0);
+  return session;
 }
 
 function requireAdmin() {
@@ -890,6 +892,113 @@ function statusBadge(s){
   if(s==='Completed'||s==='Recorded') return `<span class="badge badge-green">${s}</span>`;
   if(s==='In Progress') return `<span class="badge badge-orange">${s}</span>`;
   return `<span class="badge badge-blue">${s}</span>`;
+}
+
+// -- Employee profile photo ---------------------------------------------------
+function initEmployeeProfilePhoto(session) {
+  if (!session || !session.empCode || typeof document === "undefined") return;
+  const run = () => mountEmployeeProfilePhoto(session);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run, { once: true });
+  } else {
+    run();
+  }
+}
+
+function mountEmployeeProfilePhoto(session) {
+  if (document.getElementById("employee-profile-photo")) return;
+  const host = document.querySelector(".emp-profile, .profile-card, .employee-card, .glass-card, .card");
+  if (!host) return;
+  ensureEmployeeProfilePhotoStyle();
+  const emp = session.emp || {};
+  const name = emp.name || session.empCode;
+  const panel = document.createElement("div");
+  panel.id = "employee-profile-photo";
+  panel.className = "employee-profile-photo";
+  panel.innerHTML = [
+    "<button class=\"profile-photo-avatar\" type=\"button\" data-profile-photo-change aria-label=\"Change profile photo\"><span></span></button>",
+    "<div class=\"profile-photo-copy\"><strong>Profile Photo</strong><small>" + escapeHtml(name) + "</small></div>",
+    "<div class=\"profile-photo-actions\">",
+    "<button class=\"profile-photo-btn profile-photo-primary\" type=\"button\" data-profile-photo-change>Change</button>",
+    "<button class=\"profile-photo-btn\" type=\"button\" data-profile-photo-remove>Remove</button>",
+    "</div>",
+    "<input class=\"profile-photo-input\" type=\"file\" accept=\"image/*\">"
+  ].join("");
+  host.insertBefore(panel, host.firstChild);
+
+  const input = panel.querySelector(".profile-photo-input");
+  panel.querySelectorAll("[data-profile-photo-change]").forEach(btn => {
+    btn.addEventListener("click", () => input.click());
+  });
+  panel.querySelector("[data-profile-photo-remove]").addEventListener("click", () => {
+    localStorage.removeItem(employeeProfilePhotoKey(session.empCode));
+    renderEmployeeProfilePhoto(panel, session.empCode, name);
+  });
+  input.addEventListener("change", async () => {
+    const file = input.files && input.files[0];
+    input.value = "";
+    if (!file) return;
+    try {
+      const dataUrl = await resizeEmployeeProfilePhoto(file);
+      localStorage.setItem(employeeProfilePhotoKey(session.empCode), dataUrl);
+      renderEmployeeProfilePhoto(panel, session.empCode, name);
+    } catch (_) {
+      alert("Please choose a valid photo.");
+    }
+  });
+  renderEmployeeProfilePhoto(panel, session.empCode, name);
+}
+
+function employeeProfilePhotoKey(empCode) {
+  return "citiHomesProfilePhoto:" + empCode;
+}
+
+function employeeInitials(name) {
+  const parts = String(name || "CH").trim().split(/\s+/).filter(Boolean);
+  return (parts[0]?.[0] || "C") + (parts.length > 1 ? parts[parts.length - 1][0] : "H");
+}
+
+function renderEmployeeProfilePhoto(panel, empCode, name) {
+  const avatar = panel.querySelector(".profile-photo-avatar");
+  const saved = localStorage.getItem(employeeProfilePhotoKey(empCode));
+  avatar.innerHTML = saved
+    ? "<img src=\"" + saved + "\" alt=\"Profile photo\">"
+    : "<span>" + escapeHtml(employeeInitials(name).toUpperCase()) + "</span>";
+}
+
+function resizeEmployeeProfilePhoto(file) {
+  return new Promise((resolve, reject) => {
+    if (!file.type || !file.type.startsWith("image/")) {
+      reject(new Error("Invalid image"));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const max = 420;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.84));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function ensureEmployeeProfilePhotoStyle() {
+  if (document.getElementById("employee-profile-photo-style")) return;
+  const style = document.createElement("style");
+  style.id = "employee-profile-photo-style";
+  style.textContent = ".employee-profile-photo{display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:12px;border-radius:20px;background:linear-gradient(135deg,rgba(255,255,255,.76),rgba(255,255,255,.24)),linear-gradient(135deg,rgba(219,178,94,.34),rgba(23,46,56,.16));border:1px solid rgba(255,255,255,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.82),0 18px 45px rgba(20,31,35,.14);backdrop-filter:blur(22px) saturate(1.45);-webkit-backdrop-filter:blur(22px) saturate(1.45)}.profile-photo-avatar{width:70px;height:70px;flex:0 0 70px;border:0;border-radius:999px;padding:0;overflow:hidden;display:grid;place-items:center;background:linear-gradient(135deg,#f8e7b6,#d3a34d 54%,#1e3e4a);color:#fff;font-size:22px;font-weight:900;box-shadow:inset 0 1px 0 rgba(255,255,255,.86),0 12px 28px rgba(30,62,74,.25);cursor:pointer}.profile-photo-avatar img{width:100%;height:100%;display:block;object-fit:cover}.profile-photo-copy{min-width:0;display:flex;flex:1 1 auto;flex-direction:column;gap:3px}.profile-photo-copy strong{font-size:13px;font-weight:900;color:#14282f}.profile-photo-copy small{font-size:11.5px;color:rgba(20,40,47,.68);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-photo-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}.profile-photo-btn{appearance:none;border:1px solid rgba(255,255,255,.75);border-radius:999px;padding:9px 12px;background:rgba(255,255,255,.45);color:#18333d;font-size:12px;font-weight:850;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 8px 20px rgba(20,31,35,.10);cursor:pointer}.profile-photo-primary{background:linear-gradient(135deg,#f8dc8a,#d7a33d 52%,#18404c);color:#fff;border-color:rgba(255,235,180,.88)}.profile-photo-input{display:none!important}@media(max-width:560px){.employee-profile-photo{align-items:flex-start;flex-wrap:wrap}.profile-photo-actions{width:100%;margin-left:82px}.profile-photo-btn{flex:1 1 0;text-align:center}}";
+  document.head.appendChild(style);
 }
 // -- Android app update notice ------------------------------------------------
 const APP_UPDATE_INFO_URL = "https://mnfrbyzdubsgnhxrzuxx.supabase.co/storage/v1/object/public/apk-downloads/app-latest.json";
