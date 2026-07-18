@@ -639,7 +639,7 @@ function showStorageBanner(health) {
 }
 
 // ── Manual timesheet (admin Excel import) ────────────────────────────────────
-const MANUAL_TS_RANGE={start:'2026-06-01',end:'2026-06-30'};
+const MANUAL_TS_RANGE=null;
 
 function isoToDDMMYYYY(iso){
   if(!iso||!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso||'';
@@ -648,7 +648,7 @@ function isoToDDMMYYYY(iso){
 }
 
 function manualTsRangeLabel(){
-  return isoToDDMMYYYY(MANUAL_TS_RANGE.start)+' – '+isoToDDMMYYYY(MANUAL_TS_RANGE.end);
+  return 'any month and year';
 }
 
 function nextRecordId(recs){
@@ -788,11 +788,11 @@ function monthOptionsHtml(months,blankLabel){
 }
 
 function isInManualTsRange(dateISO){
-  return dateISO&&dateISO>=MANUAL_TS_RANGE.start&&dateISO<=MANUAL_TS_RANGE.end;
+  return !!(dateISO&&/^\d{4}-\d{2}-\d{2}$/.test(dateISO));
 }
 
 function manualTsRecords(recs){
-  return recs.filter(r=>isInManualTsRange(extractRecordDateISO(r)));
+  return recs.filter(r=>r.source==='manual-timesheet'&&isInManualTsRange(extractRecordDateISO(r)));
 }
 
 // ── Location helper (Android app + browser) ───────────────────────────────────
