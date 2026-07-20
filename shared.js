@@ -212,6 +212,13 @@ function navigateReplace(route) {
   window.location.replace(routeFor(route));
 }
 
+function getCurrentRouteKey() {
+  const file = (location.pathname || "").split("/").pop() || "index.html";
+  if (file === "employee.html") return "employee";
+  if (file === "admin.html") return "admin";
+  return "login";
+}
+
 function parseSession(raw) {
   if (!raw) return null;
   try {
@@ -278,7 +285,7 @@ function requireEmployee() {
     throw 0;
   }
   const session = { role: "employee", empCode: s.empCode, emp: fresh };
-  setTimeout(initAppUpdateNotice, 0);
+  setTimeout(() => initAppUpdateNotice("employee"), 0);
   setTimeout(() => initEmployeeProfilePhoto(session), 0);
   return session;
 }
@@ -289,7 +296,7 @@ function requireAdmin() {
     navigateReplace("login");
     throw 0;
   }
-  setTimeout(initAppUpdateNotice, 0);
+  setTimeout(() => initAppUpdateNotice("admin"), 0);
   return s;
 }
 
@@ -1122,6 +1129,18 @@ const APP_UPDATE_INFO_URL = "https://mnfrbyzdubsgnhxrzuxx.supabase.co/storage/v1
 const APP_DOWNLOAD_URL = "https://mnfrbyzdubsgnhxrzuxx.supabase.co/storage/v1/object/public/apk-downloads/CitiHomesAttendance.apk";
 let _appUpdateCheckStarted = false;
 
+function canShowAppUpdateNotice(expectedRoute) {
+  if (typeof window === "undefined") return false;
+  const currentRoute = getCurrentRouteKey();
+  if (currentRoute === "login") return false;
+  if (expectedRoute && currentRoute !== expectedRoute) return false;
+  const session = getSession();
+  if (!session) return false;
+  if (currentRoute === "employee") return session.role === "employee";
+  if (currentRoute === "admin") return session.role === "admin";
+  return false;
+}
+
 function getNativeAppInfo() {
   try {
     if (window.CitiHomesApp && typeof window.CitiHomesApp.getVersionCode === "function") {
@@ -1143,10 +1162,15 @@ function getNativeAppInfo() {
   return null;
 }
 
-async function initAppUpdateNotice() {
+async function initAppUpdateNotice(expectedRoute) {
   if (_appUpdateCheckStarted || typeof window === "undefined") return;
+  if (!canShowAppUpdateNotice(expectedRoute)) return;
   _appUpdateCheckStarted = true;
   await new Promise(resolve => setTimeout(resolve, 700));
+  if (!canShowAppUpdateNotice(expectedRoute)) {
+    _appUpdateCheckStarted = false;
+    return;
+  }
   const installed = getNativeAppInfo();
   if (!installed || installed.platform !== "android") return;
   try {
@@ -1193,6 +1217,7 @@ function ensureAppUpdateNoticeStyle() {
 
 if (typeof window !== "undefined") {
   window.addEventListener("citiHomesNativeAppReady", () => {
+    if (!canShowAppUpdateNotice()) return;
     _appUpdateCheckStarted = false;
     initAppUpdateNotice();
   });
