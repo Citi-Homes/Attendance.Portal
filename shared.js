@@ -397,8 +397,10 @@ function decimalHours(mins){
 
 // ── Records storage (Supabase only — no local drive / localStorage) ───────────
 const REC_TABLE = 'attendance_records';
+const PROFILE_TABLE = 'employee_profiles';
 let _recordsCache = null;
 let _recordDateColumn = null;
+let _employeeProfilesCache = null;
 
 function purgeLegacyLocalRecords() {
   try { localStorage.removeItem('att_v3_records'); } catch (_) {}
@@ -537,6 +539,83 @@ async function deleteRecordAsync(id) {
   if (_recordsCache) _recordsCache = _recordsCache.filter(r => r.id !== id);
 }
 
+async function loadEmployeeProfilesAsync(force) {
+  if (_employeeProfilesCache && !force) return Object.assign({}, _employeeProfilesCache);
+  const sb = supabaseConfig();
+  if (!sb) {
+    _employeeProfilesCache = {};
+    return {};
+  }
+  try {
+    const res = await fetch(sb.url + '/rest/v1/' + PROFILE_TABLE + '?select=emp_code,photo_data,updated_at', {
+      headers: sbHeaders()
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      if (body.includes('does not exist') || body.includes('PGRST205') || res.status === 404) {
+        _employeeProfilesCache = {};
+        return {};
+      }
+      throw new Error('Failed to load employee profiles: ' + body);
+    }
+    const rows = await res.json();
+    _employeeProfilesCache = rows.reduce((acc, row) => {
+      acc[row.emp_code] = {
+        photoData: row.photo_data || '',
+        updatedAt: row.updated_at || ''
+      };
+      return acc;
+    }, {});
+    return Object.assign({}, _employeeProfilesCache);
+  } catch (_) {
+    _employeeProfilesCache = _employeeProfilesCache || {};
+    return Object.assign({}, _employeeProfilesCache);
+  }
+}
+
+function getEmployeeProfilePhoto(empCode) {
+  const cloud = _employeeProfilesCache && _employeeProfilesCache[empCode] && _employeeProfilesCache[empCode].photoData;
+  if (cloud) return cloud;
+  try {
+    return localStorage.getItem(employeeProfilePhotoKey(empCode)) || '';
+  } catch (_) {
+    return '';
+  }
+}
+
+async function saveEmployeeProfilePhotoAsync(empCode, photoData) {
+  requireSupabaseStorage();
+  const sb = supabaseConfig();
+  const row = {
+    emp_code: empCode,
+    photo_data: photoData || '',
+    updated_at: new Date().toISOString()
+  };
+  const res = await fetch(sb.url + '/rest/v1/' + PROFILE_TABLE, {
+    method: 'POST',
+    headers: sbHeaders({ Prefer: 'resolution=merge-duplicates,return=representation' }),
+    body: JSON.stringify(row)
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    if (body.includes('employee_profiles') && (body.includes('does not exist') || body.includes('PGRST205') || res.status === 404)) {
+      throw new Error('Profile photo table is not ready. Run supabase-setup.sql in Supabase SQL Editor, then try again.');
+    }
+    throw new Error('Failed to save profile photo: ' + body);
+  }
+  const saved = (await res.json())[0] || row;
+  _employeeProfilesCache = _employeeProfilesCache || {};
+  _employeeProfilesCache[empCode] = {
+    photoData: saved.photo_data || '',
+    updatedAt: saved.updated_at || row.updated_at
+  };
+  try {
+    if (photoData) localStorage.setItem(employeeProfilePhotoKey(empCode), photoData);
+    else localStorage.removeItem(employeeProfilePhotoKey(empCode));
+  } catch (_) {}
+  return _employeeProfilesCache[empCode];
+}
+
 async function persistRecord(rec) {
   ensureRecordDates(rec);
   await upsertRecordAsync(rec);
@@ -556,6 +635,10 @@ function notifySaveError(err) {
   }
   if (msg.includes('attendance_records') && (msg.includes('does not exist') || msg.includes('PGRST205') || msg.includes('404'))) {
     alert('Cloud database is not set up yet.\n\nAsk your administrator to run:\n  npm run setup:db\n\nOr paste supabase-setup.sql into Supabase → SQL Editor.');
+    return;
+  }
+  if (msg.includes('employee_profiles') || msg.includes('Profile photo table')) {
+    alert('Profile photo storage is not set up yet.\n\nRun the latest supabase-setup.sql in Supabase SQL Editor, then try again.');
     return;
   }
   alert('Could not save to the server. Check your internet connection and try again.\n\n' + msg);
@@ -639,7 +722,7 @@ function showStorageBanner(health) {
 }
 
 // ── Manual timesheet (admin Excel import) ────────────────────────────────────
-const MANUAL_TS_RANGE=null;
+const MANUAL_TS_RANGE={start:'2026-06-01',end:'2026-06-30'};
 
 function isoToDDMMYYYY(iso){
   if(!iso||!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso||'';
@@ -648,7 +731,7 @@ function isoToDDMMYYYY(iso){
 }
 
 function manualTsRangeLabel(){
-  return 'any month and year';
+  return isoToDDMMYYYY(MANUAL_TS_RANGE.start)+' – '+isoToDDMMYYYY(MANUAL_TS_RANGE.end);
 }
 
 function nextRecordId(recs){
@@ -788,11 +871,11 @@ function monthOptionsHtml(months,blankLabel){
 }
 
 function isInManualTsRange(dateISO){
-  return !!(dateISO&&/^\d{4}-\d{2}-\d{2}$/.test(dateISO));
+  return dateISO&&dateISO>=MANUAL_TS_RANGE.start&&dateISO<=MANUAL_TS_RANGE.end;
 }
 
 function manualTsRecords(recs){
-  return recs.filter(r=>r.source==='manual-timesheet'&&isInManualTsRange(extractRecordDateISO(r)));
+  return recs.filter(r=>isInManualTsRange(extractRecordDateISO(r)));
 }
 
 // ── Location helper (Android app + browser) ───────────────────────────────────
@@ -930,23 +1013,42 @@ function mountEmployeeProfilePhoto(session) {
   panel.querySelectorAll("[data-profile-photo-change]").forEach(btn => {
     btn.addEventListener("click", () => input.click());
   });
-  panel.querySelector("[data-profile-photo-remove]").addEventListener("click", () => {
-    localStorage.removeItem(employeeProfilePhotoKey(session.empCode));
-    renderEmployeeProfilePhoto(panel, session.empCode, name);
+  panel.querySelector("[data-profile-photo-remove]").addEventListener("click", async () => {
+    setEmployeeProfilePhotoBusy(panel, true);
+    try {
+      await saveEmployeeProfilePhotoAsync(session.empCode, "");
+      renderEmployeeProfilePhoto(panel, session.empCode, name);
+    } catch (err) {
+      notifySaveError(err);
+    } finally {
+      setEmployeeProfilePhotoBusy(panel, false);
+    }
   });
   input.addEventListener("change", async () => {
     const file = input.files && input.files[0];
     input.value = "";
     if (!file) return;
+    setEmployeeProfilePhotoBusy(panel, true);
     try {
       const dataUrl = await resizeEmployeeProfilePhoto(file);
-      localStorage.setItem(employeeProfilePhotoKey(session.empCode), dataUrl);
+      await saveEmployeeProfilePhotoAsync(session.empCode, dataUrl);
       renderEmployeeProfilePhoto(panel, session.empCode, name);
-    } catch (_) {
-      alert("Please choose a valid photo.");
+    } catch (err) {
+      if (String(err && err.message ? err.message : err).includes("valid")) alert("Please choose a valid photo.");
+      else notifySaveError(err);
+    } finally {
+      setEmployeeProfilePhotoBusy(panel, false);
     }
   });
   renderEmployeeProfilePhoto(panel, session.empCode, name);
+  loadEmployeeProfilesAsync().then(async () => {
+    const localPhoto = getEmployeeProfilePhoto(session.empCode);
+    const cloudPhoto = _employeeProfilesCache && _employeeProfilesCache[session.empCode] && _employeeProfilesCache[session.empCode].photoData;
+    if (localPhoto && !cloudPhoto) {
+      try { await saveEmployeeProfilePhotoAsync(session.empCode, localPhoto); } catch (_) {}
+    }
+    renderEmployeeProfilePhoto(panel, session.empCode, name);
+  });
 }
 
 function employeeProfilePhotoKey(empCode) {
@@ -960,10 +1062,24 @@ function employeeInitials(name) {
 
 function renderEmployeeProfilePhoto(panel, empCode, name) {
   const avatar = panel.querySelector(".profile-photo-avatar");
-  const saved = localStorage.getItem(employeeProfilePhotoKey(empCode));
-  avatar.innerHTML = saved
+  avatar.innerHTML = employeeProfileAvatarHtml(empCode, name);
+  const sidebarAvatar = document.getElementById("sb-avatar");
+  if (sidebarAvatar) {
+    sidebarAvatar.classList.add("emp-avatar-has-photo");
+    sidebarAvatar.innerHTML = employeeProfileAvatarHtml(empCode, name);
+  }
+}
+
+function employeeProfileAvatarHtml(empCode, name) {
+  const saved = getEmployeeProfilePhoto(empCode);
+  return saved
     ? "<img src=\"" + saved + "\" alt=\"Profile photo\">"
     : "<span>" + escapeHtml(employeeInitials(name).toUpperCase()) + "</span>";
+}
+
+function setEmployeeProfilePhotoBusy(panel, busy) {
+  panel.querySelectorAll("button").forEach(btn => btn.disabled = !!busy);
+  panel.classList.toggle("is-saving", !!busy);
 }
 
 function resizeEmployeeProfilePhoto(file) {
@@ -997,7 +1113,7 @@ function ensureEmployeeProfilePhotoStyle() {
   if (document.getElementById("employee-profile-photo-style")) return;
   const style = document.createElement("style");
   style.id = "employee-profile-photo-style";
-  style.textContent = ".employee-profile-photo{display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:12px;border-radius:20px;background:linear-gradient(135deg,rgba(255,255,255,.76),rgba(255,255,255,.24)),linear-gradient(135deg,rgba(219,178,94,.34),rgba(23,46,56,.16));border:1px solid rgba(255,255,255,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.82),0 18px 45px rgba(20,31,35,.14);backdrop-filter:blur(22px) saturate(1.45);-webkit-backdrop-filter:blur(22px) saturate(1.45)}.profile-photo-avatar{width:70px;height:70px;flex:0 0 70px;border:0;border-radius:999px;padding:0;overflow:hidden;display:grid;place-items:center;background:linear-gradient(135deg,#f8e7b6,#d3a34d 54%,#1e3e4a);color:#fff;font-size:22px;font-weight:900;box-shadow:inset 0 1px 0 rgba(255,255,255,.86),0 12px 28px rgba(30,62,74,.25);cursor:pointer}.profile-photo-avatar img{width:100%;height:100%;display:block;object-fit:cover}.profile-photo-copy{min-width:0;display:flex;flex:1 1 auto;flex-direction:column;gap:3px}.profile-photo-copy strong{font-size:13px;font-weight:900;color:#14282f}.profile-photo-copy small{font-size:11.5px;color:rgba(20,40,47,.68);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-photo-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}.profile-photo-btn{appearance:none;border:1px solid rgba(255,255,255,.75);border-radius:999px;padding:9px 12px;background:rgba(255,255,255,.45);color:#18333d;font-size:12px;font-weight:850;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 8px 20px rgba(20,31,35,.10);cursor:pointer}.profile-photo-primary{background:linear-gradient(135deg,#f8dc8a,#d7a33d 52%,#18404c);color:#fff;border-color:rgba(255,235,180,.88)}.profile-photo-input{display:none!important}@media(max-width:560px){.employee-profile-photo{align-items:flex-start;flex-wrap:wrap}.profile-photo-actions{width:100%;margin-left:82px}.profile-photo-btn{flex:1 1 0;text-align:center}}";
+  style.textContent = ".employee-profile-photo{display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:12px;border-radius:20px;background:linear-gradient(135deg,rgba(255,255,255,.76),rgba(255,255,255,.24)),linear-gradient(135deg,rgba(219,178,94,.34),rgba(23,46,56,.16));border:1px solid rgba(255,255,255,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.82),0 18px 45px rgba(20,31,35,.14);backdrop-filter:blur(22px) saturate(1.45);-webkit-backdrop-filter:blur(22px) saturate(1.45)}.employee-profile-photo.is-saving{opacity:.72;pointer-events:none}.profile-photo-avatar,.employee-photo-mini{border:0;border-radius:999px;padding:0;overflow:hidden;display:grid;place-items:center;background:linear-gradient(135deg,#f8e7b6,#d3a34d 54%,#1e3e4a);color:#fff;font-weight:900;box-shadow:inset 0 1px 0 rgba(255,255,255,.86),0 12px 28px rgba(30,62,74,.25)}.profile-photo-avatar{width:70px;height:70px;flex:0 0 70px;font-size:22px;cursor:pointer}.employee-photo-mini{width:42px;height:42px;font-size:13px}.profile-photo-avatar img,.employee-photo-mini img,.emp-avatar-has-photo img{width:100%;height:100%;display:block;object-fit:cover}.emp-avatar-has-photo{overflow:hidden}.profile-photo-copy{min-width:0;display:flex;flex:1 1 auto;flex-direction:column;gap:3px}.profile-photo-copy strong{font-size:13px;font-weight:900;color:#14282f}.profile-photo-copy small{font-size:11.5px;color:rgba(20,40,47,.68);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-photo-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}.profile-photo-btn{appearance:none;border:1px solid rgba(255,255,255,.75);border-radius:999px;padding:9px 12px;background:rgba(255,255,255,.45);color:#18333d;font-size:12px;font-weight:850;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 8px 20px rgba(20,31,35,.10);cursor:pointer}.profile-photo-btn:disabled{cursor:wait;opacity:.75}.profile-photo-primary{background:linear-gradient(135deg,#f8dc8a,#d7a33d 52%,#18404c);color:#fff;border-color:rgba(255,235,180,.88)}.profile-photo-input{display:none!important}@media(max-width:560px){.employee-profile-photo{align-items:flex-start;flex-wrap:wrap}.profile-photo-actions{width:100%;margin-left:82px}.profile-photo-btn{flex:1 1 0;text-align:center}}";
   document.head.appendChild(style);
 }
 // -- Android app update notice ------------------------------------------------
