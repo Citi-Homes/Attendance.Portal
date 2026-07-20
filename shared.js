@@ -1131,14 +1131,12 @@ let _appUpdateCheckStarted = false;
 
 function canShowAppUpdateNotice(expectedRoute) {
   if (typeof window === "undefined") return false;
-  const currentRoute = getCurrentRouteKey();
-  if (currentRoute === "login") return false;
-  if (expectedRoute && currentRoute !== expectedRoute) return false;
   const session = getSession();
   if (!session) return false;
-  if (currentRoute === "employee") return session.role === "employee";
-  if (currentRoute === "admin") return session.role === "admin";
-  return false;
+  const currentRoute = getCurrentRouteKey();
+  if (currentRoute === "login") return false;
+  if (expectedRoute && session.role !== expectedRoute) return false;
+  return session.role === "employee" || session.role === "admin";
 }
 
 function getNativeAppInfo() {
