@@ -1,0 +1,2 @@
+Deploy latest portal changes: login-only update notice
+2026-07-20
