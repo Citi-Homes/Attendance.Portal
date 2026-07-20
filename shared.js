@@ -990,7 +990,7 @@ function initEmployeeProfilePhoto(session) {
 
 function mountEmployeeProfilePhoto(session) {
   if (document.getElementById("employee-profile-photo")) return;
-  const host = document.querySelector(".emp-profile, .profile-card, .employee-card, .glass-card, .card");
+  const host = document.querySelector("#profile-photo-host, .emp-profile, .profile-card, .employee-card, .glass-card, .card");
   if (!host) return;
   ensureEmployeeProfilePhotoStyle();
   const emp = session.emp || {};
@@ -1007,7 +1007,8 @@ function mountEmployeeProfilePhoto(session) {
     "</div>",
     "<input class=\"profile-photo-input\" type=\"file\" accept=\"image/*\">"
   ].join("");
-  host.insertBefore(panel, host.firstChild);
+  if (host.id === "profile-photo-host") host.appendChild(panel);
+  else host.insertBefore(panel, host.firstChild);
 
   const input = panel.querySelector(".profile-photo-input");
   panel.querySelectorAll("[data-profile-photo-change]").forEach(btn => {
@@ -1155,6 +1156,7 @@ async function initAppUpdateNotice() {
     const latestCode = Number(latest.versionCode) || 0;
     const installedCode = Number(installed.versionCode) || 0;
     if (!latestCode || installedCode >= latestCode) return;
+    updateDownloadButtonsForAppUpdate(installed, latest);
     showAppUpdateNotice(installed, latest);
   } catch (_) {}
 }
@@ -1168,6 +1170,17 @@ function showAppUpdateNotice(installed, latest) {
   notice.innerHTML = "<div class=\"app-update-copy\"><strong>App update available</strong><span>Please update Citi Homes Attendance to version " + versionLabel + ".</span></div><a class=\"app-update-btn\" href=\"" + downloadUrl + "\" download=\"CitiHomesAttendance.apk\">Update App</a>";
   document.body.appendChild(notice);
   ensureAppUpdateNoticeStyle();
+}
+
+function updateDownloadButtonsForAppUpdate(installed, latest) {
+  const downloadUrl = latest.downloadUrl || installed.downloadUrl || APP_DOWNLOAD_URL;
+  document.querySelectorAll(".btn-download-app").forEach(btn => {
+    btn.href = downloadUrl;
+    btn.setAttribute("download", "CitiHomesAttendance.apk");
+    btn.setAttribute("aria-label", "Update Citi Homes Attendance Android app");
+    btn.textContent = "Update App";
+    btn.classList.add("btn-app-update-available");
+  });
 }
 
 function ensureAppUpdateNoticeStyle() {

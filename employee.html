@@ -5,7 +5,7 @@
 <meta name="referrer" content="no-referrer"/>
 <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
 <title>Citi Homes Attendance Portal — Employee</title>
-<link rel="stylesheet" href="styles.css?v=mobile-app-row2-20260714"/>
+<link rel="stylesheet" href="styles.css?v=profile-home-20260720"/>
 </head>
 <body>
 <div id="app-loading" class="app-loading open"><div class="app-loading-inner"><div class="spinner"></div><div class="app-loading-msg">Loading attendance…</div></div></div>
@@ -18,7 +18,7 @@
 
 <!-- TOPBAR -->
 <header class="topbar">
-  <a href="employee.html#mark" class="topbar-brand">
+  <a href="employee.html#profile" class="topbar-brand">
     <div class="brand-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
     <span class="brand-name">Citi Homes Attendance Portal</span>
   </a>
@@ -42,8 +42,13 @@
       <div class="emp-dept" id="sb-dept"></div>
     </div>
     <div class="nav-section">
+      <div class="nav-label">Employee</div>
+      <div class="nav-item active" data-section="profile" onclick="showSection('profile', this)">
+        <svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 10-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+        Profile
+      </div>
       <div class="nav-label">Attendance</div>
-      <div class="nav-item active" data-section="mark" onclick="showSection('mark', this)">
+      <div class="nav-item" data-section="mark" onclick="showSection('mark', this)">
         <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><polyline points="12 6 12 12 16 14"/></svg>
         Mark Attendance
       </div>
@@ -60,8 +65,22 @@
 
   <!-- MAIN -->
   <main class="main-content">
+    <!-- PROFILE -->
+    <div class="page-section active" id="sec-profile">
+      <div class="employee-profile-home">
+        <div class="card-header"><div><div class="card-title">Profile</div><div class="card-sub">Your Citi Homes attendance identity</div></div></div>
+        <div id="profile-photo-host"></div>
+        <div class="profile-detail-grid">
+          <div><span>Name</span><strong id="profile-name"></strong></div>
+          <div><span>Employee Code</span><strong id="profile-code"></strong></div>
+          <div><span>Department</span><strong id="profile-dept"></strong></div>
+          <div><span>Designation</span><strong id="profile-desig"></strong></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ MARK ATTENDANCE ══ -->
-    <div class="page-section active" id="sec-mark">
+    <div class="page-section" id="sec-mark">
       <div class="card-header" style="margin-bottom:20px">
         <div><div class="card-title">Mark Attendance</div><div class="card-sub">Today: <span id="today-display"></span></div></div>
         <div id="today-status-badge"></div>
@@ -372,6 +391,10 @@ document.getElementById('sb-avatar').textContent=EMP.name.split(' ').map(w=>w[0]
 document.getElementById('sb-name').textContent=EMP.name;
 document.getElementById('sb-code').textContent=EMPCODE;
 document.getElementById('sb-dept').textContent=EMP.dept;
+document.getElementById('profile-name').textContent=EMP.name;
+document.getElementById('profile-code').textContent=EMPCODE;
+document.getElementById('profile-dept').textContent=EMP.dept;
+document.getElementById('profile-desig').textContent=EMP.desig || '';
 
 /* ── Clock ── */
 function tick(){
@@ -781,7 +804,7 @@ async function bootstrapEmployee(){
   prefetchSilentLocation();
   populateMonthFilters();
   renderTodayCard();
-  initHashRouting(['mark','my-records','summary'], showSection, 'mark');
+  initHashRouting(['profile','mark','my-records','summary'], showSection, 'profile');
 }
 prefetchSilentLocation();
 bootstrapEmployee();
