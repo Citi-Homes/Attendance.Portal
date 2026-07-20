@@ -1,0 +1,105 @@
+name: Apply login-only app update gate
+
+on:
+  push:
+    paths:
+      - .github/workflows/codex-login-update-gate.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Patch shared.js
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('shared.js')
+          text = path.read_text(encoding='utf-8')
+
+          if 'function getCurrentRouteKey()' not in text:
+              text = text.replace('''function navigateReplace(route) {
+  window.location.replace(routeFor(route));
+}
+''', '''function navigateReplace(route) {
+  window.location.replace(routeFor(route));
+}
+
+function getCurrentRouteKey() {
+  const file = (location.pathname || "").split("/").pop() || "index.html";
+  if (file === "employee.html") return "employee";
+  if (file === "admin.html") return "admin";
+  return "login";
+}
+''')
+
+          text = text.replace('setTimeout(initAppUpdateNotice, 0);
+  setTimeout(() => initEmployeeProfilePhoto(session), 0);', 'setTimeout(() => initAppUpdateNotice("employee"), 0);
+  setTimeout(() => initEmployeeProfilePhoto(session), 0);')
+          text = text.replace('setTimeout(initAppUpdateNotice, 0);
+  return s;', 'setTimeout(() => initAppUpdateNotice("admin"), 0);
+  return s;')
+
+          if 'function canShowAppUpdateNotice(expectedRoute)' not in text:
+              text = text.replace('''let _appUpdateCheckStarted = false;
+
+function getNativeAppInfo() {''', '''let _appUpdateCheckStarted = false;
+
+function canShowAppUpdateNotice(expectedRoute) {
+  if (typeof window === "undefined") return false;
+  const currentRoute = getCurrentRouteKey();
+  if (currentRoute === "login") return false;
+  if (expectedRoute && currentRoute !== expectedRoute) return false;
+  const session = getSession();
+  if (!session) return false;
+  if (currentRoute === "employee") return session.role === "employee";
+  if (currentRoute === "admin") return session.role === "admin";
+  return false;
+}
+
+function getNativeAppInfo() {''')
+
+          text = text.replace('''async function initAppUpdateNotice() {
+  if (_appUpdateCheckStarted || typeof window === "undefined") return;
+  _appUpdateCheckStarted = true;
+  await new Promise(resolve => setTimeout(resolve, 700));
+  const installed = getNativeAppInfo();''', '''async function initAppUpdateNotice(expectedRoute) {
+  if (_appUpdateCheckStarted || typeof window === "undefined") return;
+  if (!canShowAppUpdateNotice(expectedRoute)) return;
+  _appUpdateCheckStarted = true;
+  await new Promise(resolve => setTimeout(resolve, 700));
+  if (!canShowAppUpdateNotice(expectedRoute)) {
+    _appUpdateCheckStarted = false;
+    return;
+  }
+  const installed = getNativeAppInfo();''')
+
+          text = text.replace('''window.addEventListener("citiHomesNativeAppReady", () => {
+    _appUpdateCheckStarted = false;
+    initAppUpdateNotice();
+  });''', '''window.addEventListener("citiHomesNativeAppReady", () => {
+    if (!canShowAppUpdateNotice()) return;
+    _appUpdateCheckStarted = false;
+    initAppUpdateNotice();
+  });''')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+          node --check shared.js
+
+      - name: Commit patch
+        run: |
+          rm -f .github/workflows/codex-login-update-gate.yml
+          git config user.name "codex"
+          git config user.email "codex@openai.com"
+          git add shared.js .github/workflows/codex-login-update-gate.yml
+          git commit -m "Show app update prompt only after login"
+          git push
