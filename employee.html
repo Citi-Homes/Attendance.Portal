@@ -65,11 +65,22 @@
 
   <!-- MAIN -->
   <main class="main-content">
-    <!-- PROFILE -->
+    <!-- ══ PROFILE ══ -->
     <div class="page-section active" id="sec-profile">
       <div class="employee-profile-home">
-        <div class="card-header"><div><div class="card-title">Profile</div><div class="card-sub">Your Citi Homes attendance identity</div></div></div>
+        <div class="card-header">
+          <div>
+            <div class="card-title">Profile</div>
+            <div class="card-sub">Your Citi Homes attendance identity</div>
+          </div>
+        </div>
         <div id="profile-photo-host"></div>
+        <div class="profile-action-row">
+          <button class="btn btn-primary btn-lg" type="button" onclick="showSection('mark')">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Mark Attendance
+          </button>
+        </div>
         <div class="profile-detail-grid">
           <div><span>Name</span><strong id="profile-name"></strong></div>
           <div><span>Employee Code</span><strong id="profile-code"></strong></div>
@@ -803,8 +814,8 @@ async function bootstrapEmployee(){
   }
   prefetchSilentLocation();
   populateMonthFilters();
-  renderTodayCard();
-  initHashRouting(['profile','mark','my-records','summary'], showSection, 'profile');
+    renderTodayCard();
+    initHashRouting(['profile','mark','my-records','summary'], showSection, 'profile');
 }
 prefetchSilentLocation();
 bootstrapEmployee();
