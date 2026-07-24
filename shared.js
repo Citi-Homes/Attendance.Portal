@@ -52,6 +52,22 @@ const EMPLOYEES = {
   }
 };
 
+function upperEmployeeText(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function normalizeEmployeeDisplay(emp) {
+  if (!emp) return emp;
+  emp.name = upperEmployeeText(emp.name);
+  emp.desig = upperEmployeeText(emp.desig || emp.designation);
+  emp.dept = upperEmployeeText(emp.dept || emp.department);
+  if (emp.designation !== undefined) emp.designation = upperEmployeeText(emp.designation || emp.desig);
+  if (emp.department !== undefined) emp.department = upperEmployeeText(emp.department || emp.dept);
+  return emp;
+}
+
+Object.keys(EMPLOYEES).forEach(code => normalizeEmployeeDisplay(EMPLOYEES[code]));
+
 // ── Routes & auth ────────────────────────────────────────────────────────────
 const ROUTE_FILES = {
   login: "index.html",
@@ -458,10 +474,10 @@ function recordToRow(rec) {
 function rowToRecord(row) {
   const rec = {
     id: Number(row.id),
-    empCode: row.emp_code,
-    empName: row.emp_name,
-    designation: row.designation || '',
-    department: row.department || '',
+    empCode: String(row.emp_code || '').trim().toUpperCase(),
+    empName: upperEmployeeText(row.emp_name),
+    designation: upperEmployeeText(row.designation || ''),
+    department: upperEmployeeText(row.department || ''),
     category: row.category,
     punchIn: row.punch_in,
     punchOut: row.punch_out || '',
@@ -505,14 +521,14 @@ function employeeMasterRecordId(code) {
 
 function employeeFromMasterRecord(rec) {
   const extra = rec.extra || {};
-  return {
+  return normalizeEmployeeDisplay({
     name: extra.name || rec.empName || '',
     desig: extra.desig || rec.designation || '',
     dept: extra.dept || rec.department || '',
     email: extra.email || '',
     status: extra.status || rec.status || 'Active',
     hidden: !!extra.hidden
-  };
+  });
 }
 
 function applyEmployeeMasterRecords(recs) {
@@ -528,9 +544,9 @@ function applyEmployeeMasterRecords(recs) {
 function employeeToMasterRecord(code, emp) {
   const c = String(code || '').trim().toUpperCase();
   const clean = {
-    name: String(emp.name || '').trim(),
-    desig: String(emp.desig || '').trim(),
-    dept: String(emp.dept || '').trim(),
+    name: upperEmployeeText(emp.name || ''),
+    desig: upperEmployeeText(emp.desig || emp.designation || ''),
+    dept: upperEmployeeText(emp.dept || emp.department || ''),
     email: String(emp.email || '').trim(),
     status: String(emp.status || 'Active').trim() || 'Active',
     hidden: !!emp.hidden
@@ -560,7 +576,7 @@ async function saveEmployeeMasterAsync(code, emp) {
   if (!emp.hidden && !String(emp.name || '').trim()) throw new Error('Employee name is required.');
   const rec = employeeToMasterRecord(c, emp);
   await upsertRecordAsync(rec);
-  EMPLOYEES[c] = employeeFromMasterRecord(rec);
+  EMPLOYEES[c] = normalizeEmployeeDisplay(employeeFromMasterRecord(rec));
   return EMPLOYEES[c];
 }
 
