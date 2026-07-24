@@ -381,6 +381,17 @@ function populateFilters(){
   });
 }
 
+function employeeView(rec){
+  const emp=EMPLOYEES[rec.empCode]||{};
+  const name=emp.name||rec.empName||rec.empCode||'';
+  return {
+    name,
+    firstName:String(name).split(' ')[0]||name,
+    designation:emp.designation||rec.designation||'',
+    department:emp.department||rec.department||''
+  };
+}
+
 /* ── DASHBOARD ── */
 function renderDash(){
   const today=fmtDate(new Date());
@@ -396,7 +407,7 @@ function renderDash(){
   // Today checkins
   const ci=document.getElementById('today-checkins');
   if(!todayRecs.length){ci.innerHTML='<div style="color:var(--text3);font-size:13px">No check-ins recorded today.</div>';}
-  else{ci.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Category</th><th>In</th><th>Out</th><th>Hrs</th><th>Status</th></tr></thead><tbody>${todayRecs.map(r=>{const m=calcHours(r.punchIn,r.punchOut);const inT=r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn;const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'';return `<tr><td style="font-size:12px;white-space:nowrap"><b>${r.empName.split(' ')[0]}</b><br><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${r.empCode}</span></td><td>${catBadge(r.category)}</td><td style="font-family:var(--mono);font-size:11px">${inT}</td><td style="font-family:var(--mono);font-size:11px">${outT||'—'}</td><td>${m?`<span class="hours-pill" style="font-size:10px">${fmtHours(m)}</span>`:'—'}</td><td>${statusBadge(r.status)}</td></tr>`;}).join('')}</tbody></table></div>`;}
+  else{ci.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Category</th><th>In</th><th>Out</th><th>Hrs</th><th>Status</th></tr></thead><tbody>${todayRecs.map(r=>{const m=calcHours(r.punchIn,r.punchOut);const inT=r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn;const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'';const emp=employeeView(r);return `<tr><td style="font-size:12px;white-space:nowrap"><b>${escapeHtml(emp.firstName)}</b><br><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${escapeHtml(r.empCode)}</span></td><td>${catBadge(r.category)}</td><td style="font-family:var(--mono);font-size:11px">${inT}</td><td style="font-family:var(--mono);font-size:11px">${outT||'—'}</td><td>${m?`<span class="hours-pill" style="font-size:10px">${fmtHours(m)}</span>`:'—'}</td><td>${statusBadge(r.status)}</td></tr>`;}).join('')}</tbody></table></div>`;}
 
   // Cat breakdown
   const cats={Office:0,Procurement:0,Interview:0};
@@ -412,7 +423,7 @@ function renderDash(){
   const missing=allRecords.filter(r=>r.status==='Punched In'||r.status==='In Progress');
   const mp=document.getElementById('missing-punchout');
   if(!missing.length){mp.innerHTML='<div class="notice notice-success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>All records have punch-out times.</div>';}
-  else{mp.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Dept</th><th>Category</th><th>Punch In</th><th>Status</th>${ADMIN_CAN_WRITE?'<th>Action</th>':''}</tr></thead><tbody>${missing.map(r=>`<tr><td style="font-size:12px;white-space:nowrap"><b>${r.empName}</b><br><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${r.empCode}</span></td><td style="font-size:11px;color:var(--text2)">${r.department}</td><td>${catBadge(r.category)}</td><td style="font-family:var(--mono);font-size:11px">${r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn}</td><td>${statusBadge(r.status)}</td>${ADMIN_CAN_WRITE?`<td><button class="btn btn-sm" onclick="openEdit(${r.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit</button></td>`:''}</tr>`).join('')}</tbody></table></div>`;}
+  else{mp.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Designation</th><th>Dept</th><th>Category</th><th>Punch In</th><th>Status</th>${ADMIN_CAN_WRITE?'<th>Action</th>':''}</tr></thead><tbody>${missing.map(r=>{const emp=employeeView(r);return `<tr><td style="font-size:12px;white-space:nowrap"><b>${escapeHtml(emp.name)}</b><br><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${escapeHtml(r.empCode)}</span></td><td style="font-size:11px;color:var(--text2)">${escapeHtml(emp.designation)||'—'}</td><td style="font-size:11px;color:var(--text2)">${escapeHtml(emp.department)}</td><td>${catBadge(r.category)}</td><td style="font-family:var(--mono);font-size:11px">${r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn}</td><td>${statusBadge(r.status)}</td>${ADMIN_CAN_WRITE?`<td><button class="btn btn-sm" onclick="openEdit(${r.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit</button></td>`:''}</tr>`;}).join('')}</tbody></table></div>`;}
 }
 
 /* ── ALL RECORDS ── */
