@@ -383,12 +383,13 @@ function populateFilters(){
 
 function employeeView(rec){
   const emp=EMPLOYEES[rec.empCode]||{};
-  const name=emp.name||rec.empName||rec.empCode||'';
+  const up=v=>String(v||'').trim().toUpperCase();
+  const name=up(emp.name||rec.empName||rec.empCode||'');
   return {
     name,
     firstName:String(name).split(' ')[0]||name,
-    designation:emp.designation||rec.designation||'',
-    department:emp.department||rec.department||''
+    designation:up(emp.designation||rec.designation||''),
+    department:up(emp.department||rec.department||'')
   };
 }
 
