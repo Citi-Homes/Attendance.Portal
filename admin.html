@@ -14,7 +14,7 @@
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
-<script src="shared.js"></script>
+<script src="shared.js?v=employee-manager-20260724"></script>
 <script>const ADMIN_SESSION=requireAdmin();const ADMIN_CAN_WRITE=ADMIN_SESSION.adminMode!=='readonly';</script>
 
 <header class="topbar">
@@ -68,6 +68,14 @@
   </aside>
 
   <main class="main-content">
+    <div class="mobile-admin-nav" id="mobile-admin-nav">
+      <button class="nav-item mobile-nav-item active" data-section="overview" onclick="showSec('overview',this)">Dashboard</button>
+      <button class="nav-item mobile-nav-item" data-section="all-records" onclick="showSec('all-records',this)">Records</button>
+      <button class="nav-item mobile-nav-item" data-section="location" onclick="showSec('location',this)">Location</button>
+      <button class="nav-item mobile-nav-item" data-section="hours" onclick="showSec('hours',this)">Hours</button>
+      <button class="nav-item mobile-nav-item" data-section="employees" onclick="showSec('employees',this)">Employees</button>
+      <button class="nav-item mobile-nav-item" data-section="manual-timesheet" onclick="showSec('manual-timesheet',this)">Timesheet</button>
+    </div>
 
     <!-- ══ DASHBOARD ══ -->
     <div class="page-section active" id="sec-overview">
@@ -146,7 +154,10 @@
     <!-- ══ EMPLOYEES ══ -->
     <div class="page-section" id="sec-employees">
       <div class="card-header" style="margin-bottom:16px">
-        <div><div class="card-title">Employee Directory</div><div class="card-sub">All registered employees</div></div>
+        <div><div class="card-title">Employee Directory</div><div class="card-sub">Add, edit, activate, or deactivate employees</div></div>
+        <button class="btn btn-sm btn-primary admin-write-only" onclick="openEmpAdd()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add New Employee
+        </button>
       </div>
       <div id="emp-directory-wrap"></div>
     </div>
@@ -209,6 +220,32 @@
   </main>
 </div>
 
+
+<!-- ══ EMPLOYEE MODAL ══ -->
+<div class="overlay" id="ov-employee">
+  <div class="modal">
+    <div class="modal-title" id="emp-modal-title">Add Employee</div>
+    <div class="modal-sub" id="emp-modal-sub">Employee master details are saved to cloud storage.</div>
+    <input type="hidden" id="emp-original-code"/>
+    <div class="row">
+      <div class="field"><label>Employee Code</label><input type="text" id="emp-code-edit" placeholder="e.g. CH8"/></div>
+      <div class="field"><label>Status</label><select id="emp-status-edit"><option>Active</option><option>Inactive</option></select></div>
+    </div>
+    <div class="field"><label>Name</label><input type="text" id="emp-name-edit" placeholder="Employee full name"/></div>
+    <div class="field"><label>Designation</label><input type="text" id="emp-desig-edit" placeholder="Designation"/></div>
+    <div class="field"><label>Department</label><input type="text" id="emp-dept-edit" placeholder="Department"/></div>
+    <div class="field"><label>Email</label><input type="email" id="emp-email-edit" placeholder="email@example.com"/></div>
+    <div class="notice notice-info" style="font-size:12px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      If you add a new employee, create their login password in admin credentials as needed.
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEmpMaster()">Save employee</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ EDIT MODAL ══ -->
 <div class="overlay" id="ov-edit">
   <div class="modal">
@@ -250,7 +287,7 @@
 
 <script>
 let allRecords=[];
-let editingId=null,deletingId=null;
+let editingId=null,deletingId=null,editingEmpCode=null;
 let tsPendingImport=null;
 let recordsReady=false;
 
@@ -288,6 +325,7 @@ function initAdminAccessUI(){
     if(howTo) howTo.innerHTML='<li>You can view and export period records below.</li><li>Import and record changes are disabled for this account.</li>';
     const uploadSection=document.getElementById('manual-ts-upload-section');
     if(uploadSection) uploadSection.style.display='none';
+    document.querySelectorAll('.admin-write-only').forEach(el=>el.style.display='none');
   }
 }
 
@@ -309,6 +347,7 @@ async function showSec(id,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
   el.classList.add('active');
+  document.querySelectorAll('.mobile-nav-item').forEach(n=>n.classList.toggle('active',n.dataset.section===id));
   if(location.hash!=='#'+id) history.replaceState(null,'','#'+id);
   try{
     await reloadRecords();
@@ -505,23 +544,87 @@ function renderHours(){
 /* ── EMPLOYEES ── */
 function renderEmpDir(){
   ensureEmployeeProfilePhotoStyle();
-  let html=`<div class="table-wrap"><table><thead><tr><th>Photo</th><th>Code</th><th>Name</th><th>Designation</th><th>Department</th><th>Status</th><th>Total Records</th><th>Total Hours</th></tr></thead><tbody>`;
-  Object.entries(EMPLOYEES).forEach(([code,emp])=>{
+  const entries=Object.entries(EMPLOYEES).sort((a,b)=>a[0].localeCompare(b[0]));
+  let html=`<div class="table-wrap"><table><thead><tr><th>Photo</th><th>Code</th><th>Name</th><th>Designation</th><th>Department</th><th>Email</th><th>Status</th><th>Total Records</th><th>Total Hours</th>${ADMIN_CAN_WRITE?'<th>Actions</th>':''}</tr></thead><tbody>`;
+  entries.forEach(([code,emp])=>{
     const recs=allRecords.filter(r=>r.empCode===code);
     const mins=recs.reduce((s,r)=>{const m=calcHours(r.punchIn,r.punchOut);return s+(m||0);},0);
     html+=`<tr>
       <td>${`<div class="employee-photo-mini">${employeeProfileAvatarHtml(code, emp.name)}</div>`}</td>
-      <td style="font-family:var(--mono);font-size:12px">${code}</td>
-      <td style="font-weight:500">${emp.name}</td>
-      <td style="font-size:12px;color:var(--text2)">${emp.desig}</td>
-      <td style="font-size:12px;color:var(--text2)">${emp.dept}</td>
-      <td><span class="badge ${emp.status==='Active'?'badge-green':'badge-red'}">${emp.status}</span></td>
+      <td style="font-family:var(--mono);font-size:12px">${escapeHtml(code)}</td>
+      <td style="font-weight:500">${escapeHtml(emp.name||'')}</td>
+      <td style="font-size:12px;color:var(--text2)">${escapeHtml(emp.desig||'')}</td>
+      <td style="font-size:12px;color:var(--text2)">${escapeHtml(emp.dept||'')}</td>
+      <td style="font-size:12px;color:var(--text2)">${escapeHtml(emp.email||'')}</td>
+      <td><span class="badge ${emp.status==='Active'?'badge-green':'badge-red'}">${escapeHtml(emp.status||'Active')}</span></td>
       <td style="text-align:center">${recs.length}</td>
       <td>${mins?`<span class="hours-pill" style="font-size:11px">${fmtHours(mins)}</span>`:'—'}</td>
+      ${ADMIN_CAN_WRITE?`<td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEmpEdit('${escapeHtml(code)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit</button></td>`:''}
     </tr>`;
   });
   html+='</tbody></table></div>';
+  if(!entries.length) html='<div class="empty-state"><p>No employees found. Use Add New Employee to create one.</p></div>';
   document.getElementById('emp-directory-wrap').innerHTML=html;
+}
+
+function openEmpAdd(){
+  if(!requireAdminWrite('manage employees')) return;
+  editingEmpCode=null;
+  document.getElementById('emp-modal-title').textContent='Add Employee';
+  document.getElementById('emp-modal-sub').textContent='Create a new employee in the directory.';
+  document.getElementById('emp-original-code').value='';
+  document.getElementById('emp-code-edit').value='';
+  document.getElementById('emp-name-edit').value='';
+  document.getElementById('emp-desig-edit').value='';
+  document.getElementById('emp-dept-edit').value='Citi Homes';
+  document.getElementById('emp-email-edit').value='';
+  document.getElementById('emp-status-edit').value='Active';
+  openOv('ov-employee');
+}
+
+function openEmpEdit(code){
+  if(!requireAdminWrite('manage employees')) return;
+  const c=String(code||'').trim().toUpperCase();
+  const emp=EMPLOYEES[c];
+  if(!emp) return;
+  editingEmpCode=c;
+  document.getElementById('emp-modal-title').textContent='Edit Employee';
+  document.getElementById('emp-modal-sub').textContent='Update employee code, name, designation, department, email, or status.';
+  document.getElementById('emp-original-code').value=c;
+  document.getElementById('emp-code-edit').value=c;
+  document.getElementById('emp-name-edit').value=emp.name||'';
+  document.getElementById('emp-desig-edit').value=emp.desig||'';
+  document.getElementById('emp-dept-edit').value=emp.dept||'';
+  document.getElementById('emp-email-edit').value=emp.email||'';
+  document.getElementById('emp-status-edit').value=emp.status||'Active';
+  openOv('ov-employee');
+}
+
+async function saveEmpMaster(){
+  if(!requireAdminWrite('manage employees')) return;
+  const original=document.getElementById('emp-original-code').value.trim().toUpperCase();
+  const code=document.getElementById('emp-code-edit').value.trim().toUpperCase();
+  const emp={
+    name:document.getElementById('emp-name-edit').value.trim(),
+    desig:document.getElementById('emp-desig-edit').value.trim(),
+    dept:document.getElementById('emp-dept-edit').value.trim(),
+    email:document.getElementById('emp-email-edit').value.trim(),
+    status:document.getElementById('emp-status-edit').value
+  };
+  if(!code){alert('Employee code is required.');return;}
+  if(!emp.name){alert('Employee name is required.');return;}
+  try{
+    if(original&&original!==code&&EMPLOYEES[original]){
+      const oldEmp=Object.assign({},EMPLOYEES[original],{hidden:true,status:'Inactive'});
+      await saveEmployeeMasterAsync(original,oldEmp);
+    }
+    await saveEmployeeMasterAsync(code,emp);
+    await reloadRecords();
+  }catch(err){notifySaveError(err);return;}
+  closeAll();
+  populateFilters();
+  renderEmpDir();
+  renderDash();
 }
 
 /* ── EDIT ── */
