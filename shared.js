@@ -491,6 +491,79 @@ function requireSupabaseStorage() {
   }
 }
 
+
+function isEmployeeMasterRecord(rec) {
+  return !!(rec && rec.source === 'employee-master');
+}
+
+function employeeMasterRecordId(code) {
+  const s = String(code || '').toUpperCase();
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 1000000000;
+  return 8800000000000 + h;
+}
+
+function employeeFromMasterRecord(rec) {
+  const extra = rec.extra || {};
+  return {
+    name: extra.name || rec.empName || '',
+    desig: extra.desig || rec.designation || '',
+    dept: extra.dept || rec.department || '',
+    email: extra.email || '',
+    status: extra.status || rec.status || 'Active',
+    hidden: !!extra.hidden
+  };
+}
+
+function applyEmployeeMasterRecords(recs) {
+  (recs || []).filter(isEmployeeMasterRecord).forEach(rec => {
+    const code = String(rec.empCode || '').trim().toUpperCase();
+    if (!code) return;
+    const emp = employeeFromMasterRecord(rec);
+    if (emp.hidden) delete EMPLOYEES[code];
+    else EMPLOYEES[code] = emp;
+  });
+}
+
+function employeeToMasterRecord(code, emp) {
+  const c = String(code || '').trim().toUpperCase();
+  const clean = {
+    name: String(emp.name || '').trim(),
+    desig: String(emp.desig || '').trim(),
+    dept: String(emp.dept || '').trim(),
+    email: String(emp.email || '').trim(),
+    status: String(emp.status || 'Active').trim() || 'Active',
+    hidden: !!emp.hidden
+  };
+  return {
+    id: employeeMasterRecordId(c),
+    empCode: c,
+    empName: clean.name,
+    designation: clean.desig,
+    department: clean.dept,
+    category: 'Employee Master',
+    punchIn: fmtDate(new Date()) + ' · 00:00:00',
+    punchOut: '',
+    remarks: 'Hidden employee master record',
+    locIn: null,
+    locOut: null,
+    status: clean.status,
+    extra: Object.assign({ employeeMaster: true, code: c }, clean),
+    source: 'employee-master',
+    recordDate: todayISO()
+  };
+}
+
+async function saveEmployeeMasterAsync(code, emp) {
+  const c = String(code || '').trim().toUpperCase();
+  if (!c) throw new Error('Employee code is required.');
+  if (!emp.hidden && !String(emp.name || '').trim()) throw new Error('Employee name is required.');
+  const rec = employeeToMasterRecord(c, emp);
+  await upsertRecordAsync(rec);
+  EMPLOYEES[c] = employeeFromMasterRecord(rec);
+  return EMPLOYEES[c];
+}
+
 async function loadRecordsAsync() {
   requireSupabaseStorage();
   await probeRecordDateColumn();
@@ -499,7 +572,9 @@ async function loadRecordsAsync() {
     headers: sbHeaders()
   });
   if (!res.ok) throw new Error('Failed to load records: ' + (await res.text()));
-  _recordsCache = (await res.json()).map(rowToRecord);
+  const rows = (await res.json()).map(rowToRecord);
+  applyEmployeeMasterRecords(rows);
+  _recordsCache = rows.filter(r => !isEmployeeMasterRecord(r));
   return _recordsCache.slice();
 }
 
@@ -514,6 +589,11 @@ async function upsertRecordAsync(rec) {
   });
   if (!res.ok) throw new Error('Failed to save record: ' + (await res.text()));
   const saved = rowToRecord((await res.json())[0]);
+  if (isEmployeeMasterRecord(saved)) {
+    applyEmployeeMasterRecords([saved]);
+    if (_recordsCache) _recordsCache = _recordsCache.filter(r => !isEmployeeMasterRecord(r));
+    return saved;
+  }
   if (_recordsCache) {
     const idx = _recordsCache.findIndex(r => r.id === saved.id);
     if (idx >= 0) _recordsCache[idx] = saved; else _recordsCache.unshift(saved);
@@ -532,6 +612,7 @@ async function upsertRecordsBulkAsync(recs) {
     body: JSON.stringify(recs.map(recordToRow))
   });
   if (!res.ok) throw new Error('Failed to save records: ' + (await res.text()));
+  applyEmployeeMasterRecords(recs);
   _recordsCache = null;
 }
 
