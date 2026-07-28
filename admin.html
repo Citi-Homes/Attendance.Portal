@@ -9,12 +9,12 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
-<div id="app-loading" class="app-loading open"><div class="app-loading-inner"><div class="spinner"></div><div class="app-loading-msg">Loading dashboard…</div></div></div>
+<div id="app-loading" class="app-loading open"><div class="app-loading-inner"><div class="spinner"></div><div class="app-loading-msg" aria-live="polite"></div></div></div>
 <div id="storage-banner" class="storage-banner"></div>
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
-<script src="shared.js?v=global-uppercase-20260724"></script>
+<script src="shared.js?v=master-sync-spinner-20260728"></script>
 <script>const ADMIN_SESSION=requireAdmin();const ADMIN_CAN_WRITE=ADMIN_SESSION.adminMode!=='readonly';</script>
 
 <header class="topbar">
@@ -637,6 +637,10 @@ async function saveEmpMaster(){
   populateFilters();
   renderEmpDir();
   renderDash();
+  renderAllRecs();
+  renderLocation();
+  renderHours();
+  renderManualTs();
 }
 
 /* ── EDIT ── */
@@ -1004,7 +1008,7 @@ function renderManualTs(){
 
 /* ── Init ── */
 async function bootstrapAdmin(){
-  setAppLoading(true, 'Connecting to cloud…');
+  setAppLoading(true);
   initAdminAccessUI();
   try{
     const health = await checkRemoteStorageHealth();
