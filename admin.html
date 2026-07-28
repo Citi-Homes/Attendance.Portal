@@ -14,7 +14,7 @@
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
-<script src="shared.js?v=profile-photo-live-20260728"></script>
+<script src="shared.js?v=manual-any-month-20260728"></script>
 <script>const ADMIN_SESSION=requireAdmin();const ADMIN_CAN_WRITE=ADMIN_SESSION.adminMode!=='readonly';</script>
 
 <header class="topbar">
@@ -167,7 +167,7 @@
       <div class="card-header" style="margin-bottom:16px">
         <div>
           <div class="card-title">Manual Timesheet</div>
-          <div class="card-sub">Import attendance from Excel for <strong>01-06-2026</strong> – <strong>30-06-2026</strong> (dd-mm-yyyy)</div>
+          <div class="card-sub">Import attendance from Excel for any month/year (date format <strong>dd-mm-yyyy</strong>)</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-sm btn-primary" onclick="downloadManualTsTemplate()">
@@ -183,9 +183,9 @@
         <div class="card-title" style="margin-bottom:10px">How to use</div>
         <div style="font-size:13px;color:var(--text2);line-height:1.7">
           <ol style="margin:0;padding-left:18px">
-            <li>Click <strong>Download Excel Template</strong> — it includes every employee and each day from <strong>01-06-2026</strong> to <strong>30-06-2026</strong> (date format <code>dd-mm-yyyy</code>).</li>
+            <li>Click <strong>Download Excel Template</strong> — it creates a current-month template for every employee (date format <code>dd-mm-yyyy</code>).</li>
             <li>Fill in <strong>Punch In</strong> and <strong>Punch Out</strong> times (e.g. <code>08:30</code> or <code>08:30:00</code>). Sundays are weekly off and are not included in the template.</li>
-            <li>Upload the completed file below. Rows without a punch-in time are skipped.</li>
+            <li>Upload the completed file below. Files may contain any month/year. Rows without a punch-in time are skipped.</li>
             <li>Existing records for the same employee and date will be updated.</li>
           </ol>
         </div>
@@ -731,9 +731,9 @@ function dl(csv,name){const a=document.createElement('a');a.href='data:text/csv;
 /* ── MANUAL TIMESHEET ── */
 function manualTsDateList(){
   const dates=[];
-  const [sy,sm,sd]=MANUAL_TS_RANGE.start.split('-').map(Number);
-  const [ey,em,ed]=MANUAL_TS_RANGE.end.split('-').map(Number);
-  const cur=new Date(sy,sm-1,sd),end=new Date(ey,em-1,ed);
+  const now=new Date();
+  const cur=new Date(now.getFullYear(),now.getMonth(),1);
+  const end=new Date(now.getFullYear(),now.getMonth()+1,0);
   while(cur<=end){
     const iso=dateISOFromParts(cur.getFullYear(),cur.getMonth()+1,cur.getDate());
     if(!isWeeklyOffDateISO(iso)) dates.push(iso);
@@ -764,8 +764,10 @@ function downloadManualTsTemplate(){
   const ws=XLSX.utils.json_to_sheet(rows);
   ws['!cols']=[{wch:12},{wch:10},{wch:28},{wch:12},{wch:10},{wch:10},{wch:20},{wch:12}];
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Timesheet Jun 2026');
-  XLSX.writeFile(wb,'CitiHomes_Timesheet_Jun01-30_2026.xlsx');
+  const now=new Date();
+  const sheetName='Timesheet '+MONTH_SHORT[now.getMonth()]+' '+now.getFullYear();
+  XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  XLSX.writeFile(wb,'CitiHomes_Timesheet_'+now.getFullYear()+'-'+p2(now.getMonth()+1)+'.xlsx');
 }
 
 function exportManualTsExcel(){
@@ -789,12 +791,12 @@ function exportManualTsExcel(){
     };
   });
   if(!rows.length){
-    alert('No records in the manual timesheet period yet. Download the template and import data first.');
+    alert('No manual timesheet records found yet. Download the template and import data first.');
     return;
   }
   const ws=XLSX.utils.json_to_sheet(rows);
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Timesheet Jun 2026');
+  XLSX.utils.book_append_sheet(wb,ws,'Manual Timesheet');
   XLSX.writeFile(wb,'CitiHomes_Timesheet_Export_'+todayISO()+'.xlsx');
 }
 
@@ -829,7 +831,6 @@ function parseTsRows(sheetRows){
     if(!r.date&&!r.empCode&&!r.punchIn) return;
     const dateISO=parseFlexibleDate(r.date);
     if(!dateISO){errors.push(`Row ${line}: invalid date "${r.date}"`);return;}
-    if(!isInManualTsRange(dateISO)){skipped.push(`Row ${line}: date ${isoToDDMMYYYY(dateISO)} outside ${manualTsRangeLabel()}`);return;}
     if(isWeeklyOffDateISO(dateISO)){skipped.push(`Row ${line}: ${dateISO} is Sunday (weekly off)`);return;}
     const code=r.empCode.toUpperCase();
     const emp=EMPLOYEES[code];
@@ -966,7 +967,7 @@ function renderManualTs(){
     if(da!==db) return da<db?-1:1;
     return a.empCode.localeCompare(b.empCode);
   });
-  document.getElementById('manual-ts-count').textContent=recs.length+' record'+(recs.length!==1?'s':'')+' in period';
+  document.getElementById('manual-ts-count').textContent=recs.length+' manual timesheet record'+(recs.length!==1?'s':'');
   const wrap=document.getElementById('manual-ts-wrap');
   if(!recs.length){
     wrap.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No manual timesheet records yet. Download the template, fill in times, and upload.</p></div>';
