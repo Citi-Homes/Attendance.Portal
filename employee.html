@@ -8,12 +8,12 @@
 <link rel="stylesheet" href="styles.css?v=profile-home-20260720"/>
 </head>
 <body>
-<div id="app-loading" class="app-loading open"><div class="app-loading-inner"><div class="spinner"></div><div class="app-loading-msg">Loading attendance…</div></div></div>
+<div id="app-loading" class="app-loading open"><div class="app-loading-inner"><div class="spinner"></div><div class="app-loading-msg" aria-live="polite"></div></div></div>
 <div id="storage-banner" class="storage-banner"></div>
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
-<script src="shared.js?v=global-uppercase-20260724"></script>
+<script src="shared.js?v=master-sync-spinner-20260728"></script>
 <script>const SESSION=requireEmployee();const EMP=SESSION.emp;const EMPCODE=SESSION.empCode;</script>
 
 <!-- TOPBAR -->
@@ -390,6 +390,7 @@ function myRecs(){return allRecords.filter(r=>r.empCode===EMPCODE);}
 
 async function reloadRecords(){
   allRecords=await loadRecordsAsync();
+  renderEmployeeIdentity();
   recordsReady=true;
 }
 
@@ -398,14 +399,19 @@ function persistRec(rec){
 }
 
 /* ── Sidebar populate ── */
-document.getElementById('sb-avatar').textContent=EMP.name.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-document.getElementById('sb-name').textContent=EMP.name;
-document.getElementById('sb-code').textContent=EMPCODE;
-document.getElementById('sb-dept').textContent=EMP.dept;
-document.getElementById('profile-name').textContent=EMP.name;
-document.getElementById('profile-code').textContent=EMPCODE;
-document.getElementById('profile-dept').textContent=EMP.dept;
-document.getElementById('profile-desig').textContent=EMP.desig || '';
+function renderEmployeeIdentity(){
+  const latest=getEmployeeMaster(EMPCODE)||EMP;
+  Object.assign(EMP, latest);
+  document.getElementById('sb-avatar').textContent=(EMP.name||EMPCODE).split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+  document.getElementById('sb-name').textContent=EMP.name||EMPCODE;
+  document.getElementById('sb-code').textContent=EMPCODE;
+  document.getElementById('sb-dept').textContent=EMP.dept||'';
+  document.getElementById('profile-name').textContent=EMP.name||EMPCODE;
+  document.getElementById('profile-code').textContent=EMPCODE;
+  document.getElementById('profile-dept').textContent=EMP.dept||'';
+  document.getElementById('profile-desig').textContent=EMP.desig||'';
+}
+renderEmployeeIdentity();
 
 /* ── Clock ── */
 function tick(){
@@ -791,7 +797,7 @@ function exportMyCSV(){
 
 /* ── Init ── */
 async function bootstrapEmployee(){
-  setAppLoading(true, 'Connecting to cloud…');
+  setAppLoading(true);
   try{
     const health = await checkRemoteStorageHealth();
     showStorageBanner(health);
