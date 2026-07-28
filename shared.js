@@ -66,7 +66,43 @@ function normalizeEmployeeDisplay(emp) {
   return emp;
 }
 
-Object.keys(EMPLOYEES).forEach(code => normalizeEmployeeDisplay(EMPLOYEES[code]));
+function employeeCodeKey(code) {
+  return String(code || '').trim().toUpperCase();
+}
+
+function getEmployeeMaster(code) {
+  return EMPLOYEES[employeeCodeKey(code)] || null;
+}
+
+function setEmployeeMaster(code, emp) {
+  const c = employeeCodeKey(code);
+  if (!c || !emp) return null;
+  const clean = normalizeEmployeeDisplay(emp);
+  if (clean.hidden) {
+    delete EMPLOYEES[c];
+    return null;
+  }
+  if (EMPLOYEES[c]) Object.assign(EMPLOYEES[c], clean);
+  else EMPLOYEES[c] = clean;
+  return EMPLOYEES[c];
+}
+
+function syncRecordEmployeeDetails(rec) {
+  if (!rec || isEmployeeMasterRecord(rec)) return rec;
+  const emp = getEmployeeMaster(rec.empCode);
+  if (!emp) return rec;
+  rec.empCode = employeeCodeKey(rec.empCode);
+  rec.empName = emp.name || rec.empName || rec.empCode;
+  rec.designation = emp.desig || rec.designation || '';
+  rec.department = emp.dept || rec.department || '';
+  return rec;
+}
+
+function syncRecordsEmployeeDetails(records) {
+  return (records || []).map(syncRecordEmployeeDetails);
+}
+
+Object.keys(EMPLOYEES).forEach(code => setEmployeeMaster(code, EMPLOYEES[code]));
 
 // ── Routes & auth ────────────────────────────────────────────────────────────
 const ROUTE_FILES = {
@@ -513,7 +549,7 @@ function isEmployeeMasterRecord(rec) {
 }
 
 function employeeMasterRecordId(code) {
-  const s = String(code || '').toUpperCase();
+  const s = employeeCodeKey(code);
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 1000000000;
   return 8800000000000 + h;
@@ -533,16 +569,14 @@ function employeeFromMasterRecord(rec) {
 
 function applyEmployeeMasterRecords(recs) {
   (recs || []).filter(isEmployeeMasterRecord).forEach(rec => {
-    const code = String(rec.empCode || '').trim().toUpperCase();
+    const code = employeeCodeKey(rec.empCode);
     if (!code) return;
-    const emp = employeeFromMasterRecord(rec);
-    if (emp.hidden) delete EMPLOYEES[code];
-    else EMPLOYEES[code] = emp;
+    setEmployeeMaster(code, employeeFromMasterRecord(rec));
   });
 }
 
 function employeeToMasterRecord(code, emp) {
-  const c = String(code || '').trim().toUpperCase();
+  const c = employeeCodeKey(code);
   const clean = {
     name: upperEmployeeText(emp.name || ''),
     desig: upperEmployeeText(emp.desig || emp.designation || ''),
@@ -571,12 +605,12 @@ function employeeToMasterRecord(code, emp) {
 }
 
 async function saveEmployeeMasterAsync(code, emp) {
-  const c = String(code || '').trim().toUpperCase();
+  const c = employeeCodeKey(code);
   if (!c) throw new Error('Employee code is required.');
   if (!emp.hidden && !String(emp.name || '').trim()) throw new Error('Employee name is required.');
   const rec = employeeToMasterRecord(c, emp);
   await upsertRecordAsync(rec);
-  EMPLOYEES[c] = normalizeEmployeeDisplay(employeeFromMasterRecord(rec));
+  setEmployeeMaster(c, employeeFromMasterRecord(rec));
   return EMPLOYEES[c];
 }
 
@@ -590,7 +624,7 @@ async function loadRecordsAsync() {
   if (!res.ok) throw new Error('Failed to load records: ' + (await res.text()));
   const rows = (await res.json()).map(rowToRecord);
   applyEmployeeMasterRecords(rows);
-  _recordsCache = rows.filter(r => !isEmployeeMasterRecord(r));
+  _recordsCache = syncRecordsEmployeeDetails(rows.filter(r => !isEmployeeMasterRecord(r)));
   return _recordsCache.slice();
 }
 
@@ -610,6 +644,7 @@ async function upsertRecordAsync(rec) {
     if (_recordsCache) _recordsCache = _recordsCache.filter(r => !isEmployeeMasterRecord(r));
     return saved;
   }
+  syncRecordEmployeeDetails(saved);
   if (_recordsCache) {
     const idx = _recordsCache.findIndex(r => r.id === saved.id);
     if (idx >= 0) _recordsCache[idx] = saved; else _recordsCache.unshift(saved);
@@ -797,7 +832,10 @@ function setAppLoading(on, message) {
   const el = document.getElementById('app-loading');
   if (!el) return;
   const msg = el.querySelector('.app-loading-msg');
-  if (msg && message) msg.textContent = message;
+  if (msg) {
+    const text = String(message || '').replace(/cloud/ig, '').trim();
+    msg.textContent = text || '';
+  }
   el.classList.toggle('open', !!on);
 }
 
