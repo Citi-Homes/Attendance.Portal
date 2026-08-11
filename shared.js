@@ -49,6 +49,15 @@ const EMPLOYEES = {
     dept: "Citi Homes",
     email: "sajidali.shouketali@gmail.com",
     status: "Active"
+  },
+
+  "TEST": {
+    name: "Test Viewer",
+    desig: "Portal Test User",
+    dept: "Citi Homes",
+    email: "test@citihomes.ae",
+    status: "Active",
+    testOnly: true
   }
 };
 
