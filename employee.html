@@ -13,7 +13,7 @@
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
-<script src="shared.js?v=procurement-vendor-flow-20260811"></script>
+<script src="shared.js?v=test-employee-viewer-20260811"></script>
 <script>const SESSION=requireEmployee();const EMP=SESSION.emp;const EMPCODE=SESSION.empCode;</script>
 
 <!-- TOPBAR -->
@@ -383,6 +383,8 @@ let recordsReady=false;
 
 function todayRecs(){return allRecords.filter(r=>r.empCode===EMPCODE&&isRecordToday(r));}
 
+function isTestEmployee(){return EMPCODE==='TEST'||!!EMP.testOnly;}
+
 function myRecs(){return allRecords.filter(r=>r.empCode===EMPCODE);}
 
 async function reloadRecords(){
@@ -392,6 +394,11 @@ async function reloadRecords(){
 }
 
 function persistRec(rec){
+  if(isTestEmployee()){
+    rec.testOnly=true;
+    rec.source=rec.source||'test-viewer';
+    return Promise.resolve(rec);
+  }
   return persistRecord(rec).catch(err=>{notifySaveError(err);throw err;});
 }
 
@@ -401,7 +408,7 @@ function renderEmployeeIdentity(){
   Object.assign(EMP, latest);
   document.getElementById('sb-avatar').textContent=(EMP.name||EMPCODE).split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
   document.getElementById('sb-name').textContent=EMP.name||EMPCODE;
-  document.getElementById('sb-code').textContent=EMPCODE;
+  document.getElementById('sb-code').textContent=isTestEmployee()?EMPCODE+' · TEST MODE':EMPCODE;
   document.getElementById('sb-dept').textContent=EMP.dept||'';
   document.getElementById('profile-name').textContent=EMP.name||EMPCODE;
   document.getElementById('profile-code').textContent=EMPCODE;
@@ -465,6 +472,10 @@ function renderTodayCard(){
   const badge=document.getElementById('today-status-badge');
   const area=document.getElementById('action-area');
 
+  if(isTestEmployee()){
+    badge.innerHTML='<span class="badge badge-gray">Test mode</span>';
+  }
+
   if(isSundayToday()){
     badge.innerHTML='<span class="badge badge-gray">Weekly off</span>';
     card.innerHTML=`<div class="notice notice-info" style="margin:0">
@@ -477,10 +488,17 @@ function renderTodayCard(){
   const recs=allRecords.filter(r=>r.empCode===EMPCODE&&isRecordToday(r));
 
   if(!recs.length){
-    badge.innerHTML='<span class="badge badge-gray">No check-in yet</span>';
-    card.innerHTML=`<div class="empty-state" style="padding:24px">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      <p>You haven't marked attendance today.</p></div>`;
+    if(isTestEmployee()){
+      badge.innerHTML='<span class="badge badge-gray">Test mode</span>';
+      card.innerHTML=`<div class="notice notice-info" style="margin:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Test mode is active. You can try attendance, procurement, and interview screens, but nothing will be saved to company records.</div>`;
+    }else{
+      badge.innerHTML='<span class="badge badge-gray">No check-in yet</span>';
+      card.innerHTML=`<div class="empty-state" style="padding:24px">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <p>You haven't marked attendance today.</p></div>`;
+    }
     area.innerHTML=`<button class="btn btn-primary btn-lg" onclick="beginFlow()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       Mark Attendance Now</button>`;
