@@ -13,7 +13,7 @@
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
-<script src="shared.js?v=manual-any-month-20260728"></script>
+<script src="shared.js?v=procurement-vendor-flow-20260811"></script>
 <script>const SESSION=requireEmployee();const EMP=SESSION.emp;const EMPCODE=SESSION.empCode;</script>
 
 <!-- TOPBAR -->
@@ -199,54 +199,51 @@
 <div class="overlay" id="ov-proc-in">
   <div class="modal">
     <div class="steps" id="st-proc-in"></div>
-    <div class="modal-title" id="proc-in-title">Procurement — Punch in</div>
-    <div class="modal-sub">Confirm your departure time</div>
+    <div class="modal-title" id="proc-in-title">Procurement — Start session</div>
+    <div class="modal-sub">Start procurement using current online time</div>
     <div id="proc-prev-visits"></div>
     <div class="ts-block" id="ts-proc-in"></div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
       <button class="btn btn-success" onclick="saveProcIn()">
-        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Confirm
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Start procurement
       </button>
     </div>
   </div>
 </div>
 
-<!-- Procurement Client -->
+<!-- Procurement Vendor Check-In -->
 <div class="overlay" id="ov-proc-client">
   <div class="modal">
     <div class="steps" id="st-proc-client"></div>
-    <div class="modal-title">Who are you visiting?</div>
-    <div class="modal-sub">Enter contact details for this visit</div>
-    <div class="row">
-      <div class="field"><label>Type</label>
-        <select id="proc-type" onchange="onProcTypeChange()">
-          <option>Client</option><option>Broker</option><option>Institute</option><option value="Office">Office (returning)</option>
-        </select>
-      </div>
-      <div class="field"><label>Name</label><input type="text" id="proc-cname" placeholder="Contact name..."/></div>
-    </div>
-    <div id="proc-office-note" class="notice notice-warn" style="display:none">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Selecting "Office" ends your procurement session and records your punch-out.
-    </div>
+    <div class="modal-title">Vendor check in</div>
+    <div class="modal-sub">Enter vendor name. Time will be captured automatically.</div>
+    <div class="field"><label>Vendor name</label><input type="text" id="proc-cname" placeholder="Vendor name..."/></div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveProcClient()">Next</button>
+      <button class="btn btn-primary" onclick="saveProcVendorIn()">
+        <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Vendor check in
+      </button>
     </div>
   </div>
 </div>
 
-<!-- Procurement Reason -->
+<!-- Procurement Vendor Check-Out -->
 <div class="overlay" id="ov-proc-reason">
   <div class="modal">
     <div class="steps" id="st-proc-reason"></div>
-    <div class="modal-title">Purpose of visit</div>
-    <div class="modal-sub" id="proc-reason-sub">Visiting: —</div>
-    <div class="field"><label>Reason / purpose</label><textarea id="proc-reason-txt" placeholder="Describe the purpose..."></textarea></div>
+    <div class="modal-title">Vendor in progress</div>
+    <div class="modal-sub" id="proc-reason-sub">Vendor: —</div>
+    <div class="ts-block" id="ts-proc-vendor-out"></div>
+    <div class="notice" style="margin-top:10px">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Vendor check-out time is recorded automatically from the current online time.
+    </div>
     <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveProcReason()">Next</button>
+      <button class="btn btn-ghost" onclick="closeAll()">Close for now</button>
+      <button class="btn btn-primary" onclick="saveProcVendorOut()">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>Vendor check out
+      </button>
     </div>
   </div>
 </div>
@@ -254,7 +251,7 @@
 <!-- Procurement Next/End -->
 <div class="overlay" id="ov-proc-next">
   <div class="modal">
-    <div class="modal-title">Visit recorded ✓</div>
+    <div class="modal-title">Vendor visit recorded</div>
     <div class="modal-sub" id="proc-next-time"></div>
     <div id="proc-all-visits"></div>
     <div id="proc-warn-18" class="notice notice-warn" style="display:none;margin-top:10px">
@@ -264,11 +261,11 @@
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
       <button class="btn" style="justify-content:flex-start" onclick="procNextVisit()">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        Add next visit (client/broker/institute)
+        Add another vendor
       </button>
       <button class="btn btn-success" style="justify-content:flex-start" onclick="procReturnOffice()">
         <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="21" x2="8" y2="10"/><line x1="16" y1="21" x2="16" y2="10"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-        Return to office &amp; punch out
+        Return office &amp; create office punch in
       </button>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost" onclick="closeAll()">Save &amp; close</button></div>
@@ -498,7 +495,7 @@ function renderTodayCard(){
   if(latest.category==='Interview'&&latest.extra){
     detHtml=`<div style="margin-top:10px;font-size:12px;color:var(--text2)"><b>Location:</b> ${latest.extra.ivLocation||''} &nbsp;|&nbsp; <b>Position:</b> ${latest.extra.position||''} &nbsp;|&nbsp; <b>Candidate:</b> ${latest.extra.candidateName||''}</div>`;
   } else if(latest.category==='Procurement'&&latest.extra&&latest.extra.visits){
-    detHtml=`<ul class="visit-list" style="margin-top:10px">${latest.extra.visits.map((v,i)=>`<li><strong>Visit ${i+1}:</strong> ${escapeHtml(v.clientType)}: ${escapeHtml(v.clientName)} — ${escapeHtml(v.reason)}</li>`).join('')}</ul>`;
+    detHtml=renderProcVisitList(latest.extra.visits);
   }
 
   card.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
@@ -578,15 +575,31 @@ function openPunchOut(id){
 }
 
 /* ══ PROCUREMENT ══ */
+function procVisitVendor(v){return v.vendorName||v.clientName||'Vendor';}
+function procVisitIn(v){return v.checkIn||v.punchIn||'';}
+function procVisitOut(v){return v.checkOut||v.punchOut||'';}
+function procTimeOnly(t){return t?(String(t).includes('·')?String(t).split('·')[1].trim():String(t)):'—';}
+function procVisitSummary(v,i){
+  const name=escapeHtml(procVisitVendor(v));
+  const inT=escapeHtml(procTimeOnly(procVisitIn(v)));
+  const outT=escapeHtml(procTimeOnly(procVisitOut(v)));
+  const legacy=v.reason?' — '+escapeHtml(v.reason):'';
+  return '<li><strong>Vendor '+(i+1)+':</strong> '+name+'<br><span style="font-size:11px;color:var(--text2)">In: '+inT+' &nbsp;|&nbsp; Out: '+outT+'</span>'+legacy+'</li>';
+}
+function renderProcVisitList(visits){
+  return visits&&visits.length?'<ul class="visit-list">'+visits.map(procVisitSummary).join('')+'</ul>':'';
+}
+function procRemarksFromVisits(){
+  return flow.procVisits.map((v,i)=>'Vendor '+(i+1)+': '+procVisitVendor(v)+' — In: '+procTimeOnly(procVisitIn(v))+' | Out: '+procTimeOnly(procVisitOut(v))).join(' | ');
+}
 function renderProcPrev(){
   const vl=document.getElementById('proc-prev-visits');
-  document.getElementById('proc-in-title').textContent=flow.procVisits.length===0?'Procurement — Punch in':`Procurement — Visit #${flow.procVisits.length+1}`;
-  vl.innerHTML=flow.procVisits.length?`<ul class="visit-list">${flow.procVisits.map((v,i)=>`<li><strong>Visit ${i+1}:</strong> ${v.clientType}: ${v.clientName} — ${v.reason}</li>`).join('')}</ul>`:'';
+  document.getElementById('proc-in-title').textContent=flow.procMainRec?'Procurement — Add vendor':'Procurement — Start session';
+  vl.innerHTML=renderProcVisitList(flow.procVisits||[]);
 }
 async function saveProcIn(){
   const d=new Date();
   const locSnap=getSilentLocSnapshot();
-  flow.curVisit={punchIn:fmtDT(d),locIn:locSnap};
   if(!flow.procMainRec){
     flow.procMainRec={id:Date.now(),empCode:EMPCODE,empName:EMP.name,designation:EMP.desig,department:EMP.dept,
       category:'Procurement',punchIn:fmtDT(d),punchOut:'',remarks:'',locIn:locSnap,locOut:null,status:'In Progress',extra:{visits:[]}};
@@ -594,69 +607,89 @@ async function saveProcIn(){
     silentLocIn(flow.procMainRec);
     try{await persistRec(flow.procMainRec);}catch{return;}
   }
+  openProcVendorIn();
+}
+function openProcVendorIn(){
   closeAll();
-  document.getElementById('proc-type').value='Client';document.getElementById('proc-cname').value='';
-  document.getElementById('proc-office-note').style.display='none';
+  document.getElementById('proc-cname').value='';
   setSteps('st-proc-client',2,4);openOv('ov-proc-client');
 }
-function onProcTypeChange(){
-  document.getElementById('proc-office-note').style.display=document.getElementById('proc-type').value==='Office'?'flex':'none';
-}
-function saveProcClient(){
-  const type=document.getElementById('proc-type').value;
+async function saveProcVendorIn(){
   const name=document.getElementById('proc-cname').value.trim();
-  if(type!=='Office'&&!name){alert('Please enter a name.');return;}
-  if(type==='Office'){
-    flow.curVisit.clientType='Office';flow.curVisit.clientName='Returned to office';flow.curVisit.reason='End of field work';
-    flow.procVisits.push({...flow.curVisit});finaliseProcRecord();return;
-  }
-  flow.curVisit.clientType=type;flow.curVisit.clientName=name;
-  closeAll();document.getElementById('proc-reason-sub').textContent=`Visiting: ${type} — ${name}`;
-  document.getElementById('proc-reason-txt').value='';
-  setSteps('st-proc-reason',3,4);openOv('ov-proc-reason');
-}
-async function saveProcReason(){
-  const r=document.getElementById('proc-reason-txt').value.trim();
-  if(!r){alert('Please enter a reason.');return;}
-  flow.curVisit.reason=r;flow.procVisits.push({...flow.curVisit});
+  if(!name){alert('Please enter vendor name.');return;}
+  const d=new Date();
+  const locSnap=getSilentLocSnapshot();
+  const stamp=fmtDT(d);
+  flow.curVisit={vendorName:name,clientType:'Vendor',clientName:name,checkIn:stamp,punchIn:stamp,checkOut:'',punchOut:'',locIn:locSnap,locOut:null};
+  flow.procVisits.push(flow.curVisit);
   if(!(await updateProcRecord())) return;
   closeAll();
-  const n=new Date();
-  document.getElementById('proc-next-time').textContent='Recorded at '+fmtTime(n);
-  document.getElementById('proc-warn-18').style.display=n.getHours()>=17?'flex':'none';
-  document.getElementById('proc-all-visits').innerHTML=`<ul class="visit-list">${flow.procVisits.map((v,i)=>`<li><strong>Visit ${i+1}:</strong> ${v.clientType}: ${v.clientName} — ${v.reason}</li>`).join('')}</ul>`;
+  document.getElementById('proc-reason-sub').textContent='Vendor: '+name+' — checked in at '+fmtTime(d);
+  setSteps('st-proc-reason',3,4);tsBlock('ts-proc-vendor-out');openOv('ov-proc-reason');renderTodayCard();
+}
+async function saveProcVendorOut(){
+  const active=[...(flow.procVisits||[])].reverse().find(v=>!procVisitOut(v));
+  if(!active){alert('No active vendor check-in found.');openProcVendorIn();return;}
+  const d=new Date();
+  const stamp=fmtDT(d);
+  active.checkOut=stamp;active.punchOut=stamp;active.locOut=getSilentLocSnapshot();
+  if(!(await updateProcRecord())) return;
+  closeAll();
+  document.getElementById('proc-next-time').textContent='Vendor checked out at '+fmtTime(d);
+  document.getElementById('proc-warn-18').style.display=d.getHours()>=17?'flex':'none';
+  document.getElementById('proc-all-visits').innerHTML=renderProcVisitList(flow.procVisits);
   openOv('ov-proc-next');renderTodayCard();
 }
 async function updateProcRecord(){
   const rec=allRecords.find(r=>r.id===flow.activeId);
-  if(rec){rec.extra.visits=flow.procVisits;rec.remarks=flow.procVisits.map((v,i)=>`Visit ${i+1}: ${v.clientType} ${v.clientName} — ${v.reason}`).join(' | ');}
+  if(rec){
+    if(!rec.extra)rec.extra={};
+    rec.extra.visits=flow.procVisits;
+    rec.remarks=procRemarksFromVisits();
+  }
   if(rec){try{await persistRec(rec);}catch{return false;}}
   return true;
 }
 function procNextVisit(){
   if(new Date().getHours()>=18){alert('Work day ended (18:00). Please return to office.');procReturnOffice();return;}
-  closeAll();renderProcPrev();setSteps('st-proc-in',1,4);tsBlock('ts-proc-in');openOv('ov-proc-in');
+  openProcVendorIn();
 }
 async function procReturnOffice(){
   const d=new Date();
+  const stamp=fmtDT(d);
+  const locSnap=getSilentLocSnapshot();
+  const active=[...(flow.procVisits||[])].reverse().find(v=>!procVisitOut(v));
+  if(active){active.checkOut=stamp;active.punchOut=stamp;active.locOut=locSnap;}
   const rec=allRecords.find(r=>r.id===flow.activeId);
+  const toSave=[];
   if(rec){
-    rec.punchOut=fmtDT(d);rec.status='Completed';
+    if(!rec.extra)rec.extra={};
+    rec.extra.visits=flow.procVisits;
+    rec.remarks=procRemarksFromVisits();
+    rec.punchOut=stamp;rec.status='Completed';rec.locOut=locSnap;
     silentLocOut(rec);
-    try{await persistRec(rec);}catch{return;}
+    toSave.push(rec);
   }
+  const officeRec={id:Date.now()+1,empCode:EMPCODE,empName:EMP.name,designation:EMP.desig,department:EMP.dept,
+    category:'Office',punchIn:stamp,punchOut:'',remarks:'Returned from procurement',locIn:locSnap,locOut:null,status:'Punched In',extra:{returnFromProcurement:true,procurementRecordId:flow.activeId}};
+  allRecords.unshift(officeRec);silentLocIn(officeRec);toSave.push(officeRec);
+  try{for(const item of toSave)await persistRec(item);}catch{return;}
+  flow.activeId=officeRec.id;flow.procMainRec=null;flow.procVisits=[];flow.curVisit=null;
   closeAll();renderTodayCard();
-}
-async function finaliseProcRecord(){
-  if(!(await updateProcRecord())) return;
-  await procReturnOffice();
 }
 function continueProcurement(id){
   flow={empCode:EMPCODE,emp:EMP,procVisits:[],activeId:id};
   const rec=allRecords.find(r=>r.id===id);
   if(rec&&rec.extra&&rec.extra.visits)flow.procVisits=[...rec.extra.visits];
   flow.procMainRec=rec;
-  renderProcPrev();setSteps('st-proc-in',1,4);tsBlock('ts-proc-in');openOv('ov-proc-in');
+  const active=[...flow.procVisits].reverse().find(v=>!procVisitOut(v));
+  if(active){
+    flow.curVisit=active;
+    document.getElementById('proc-reason-sub').textContent='Vendor: '+procVisitVendor(active)+' — checked in at '+procTimeOnly(procVisitIn(active));
+    setSteps('st-proc-reason',3,4);tsBlock('ts-proc-vendor-out');openOv('ov-proc-reason');
+  }else{
+    renderProcPrev();setSteps('st-proc-in',1,4);tsBlock('ts-proc-in');openOv('ov-proc-in');
+  }
 }
 
 /* ══ INTERVIEW ══ */
@@ -747,7 +780,7 @@ function renderMyRecords(){
     const mins=calcHours(r.punchIn,r.punchOut);
     let det='';
     if(r.category==='Interview'&&r.extra)det=`<div style="font-size:11px;line-height:1.7;color:var(--text2)"><div><b>Location:</b> ${r.extra.ivLocation||''}</div><div><b>Position:</b> ${r.extra.position||''}</div><div><b>Candidate:</b> ${r.extra.candidateName||''}</div>${r.extra.candidateContact?`<div><b>Contact:</b> ${r.extra.candidateContact}</div>`:''}</div>`;
-    else if(r.category==='Procurement'&&r.extra&&r.extra.visits)det=`<div style="font-size:11px;line-height:1.7;color:var(--text2)">${r.extra.visits.map((v,i)=>`<div><b>V${i+1}:</b> ${v.clientType} ${v.clientName}</div>`).join('')}</div>`;
+    else if(r.category==='Procurement'&&r.extra&&r.extra.visits)det='<div style="font-size:11px;line-height:1.7;color:var(--text2)">'+r.extra.visits.map((v,i)=>'<div><b>Vendor '+(i+1)+':</b> '+escapeHtml(procVisitVendor(v))+'<br><span style="color:var(--text3)">In: '+escapeHtml(procTimeOnly(procVisitIn(v)))+' | Out: '+escapeHtml(procTimeOnly(procVisitOut(v)))+'</span></div>').join('')+'</div>'; 
     const inT=r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn;
     const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'';
     const dateT=r.punchIn.includes('·')?r.punchIn.split('·')[0].trim():r.punchIn.substring(0,15);
@@ -787,7 +820,7 @@ function exportMyCSV(){
     const mins=calcHours(r.punchIn,r.punchOut);
     let det='';
     if(r.category==='Interview'&&r.extra)det=`Loc:${r.extra.ivLocation||''} Pos:${r.extra.position||''} Cand:${r.extra.candidateName||''}`;
-    else if(r.category==='Procurement'&&r.extra&&r.extra.visits)det=r.extra.visits.map((v,i)=>`V${i+1}:${v.clientType} ${v.clientName}`).join(' | ');
+    else if(r.category==='Procurement'&&r.extra&&r.extra.visits)det=r.extra.visits.map((v,i)=>'Vendor '+(i+1)+': '+procVisitVendor(v)+' In '+procTimeOnly(procVisitIn(v))+' Out '+procTimeOnly(procVisitOut(v))).join(' | ');
     return [r.punchIn.split('·')[0].trim(),r.category,`"${r.punchIn}"`,`"${r.punchOut||''}"`,decimalHours(mins),r.status,`"${det}"`,`"${(r.remarks||'').replace(/"/g,'""')}"`].join(',');
   });
   const csv=[hdr.join(','),...rows].join('\n');
