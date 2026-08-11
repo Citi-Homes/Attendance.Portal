@@ -14,7 +14,7 @@
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
-<script src="shared.js?v=procurement-vendor-flow-20260811"></script>
+<script src="shared.js?v=test-employee-viewer-20260811"></script>
 <script>const ADMIN_SESSION=requireAdmin();const ADMIN_CAN_WRITE=ADMIN_SESSION.adminMode!=='readonly';</script>
 
 <header class="topbar">
@@ -363,7 +363,7 @@ async function showSec(id,el){
 
 /* ── Populate filter dropdowns ── */
 function populateFilters(){
-  const empCodes=[...new Set([...Object.keys(EMPLOYEES), ...allRecords.map(r=>r.empCode)])].sort();
+  const empCodes=[...new Set([...visibleEmployeeCodes(), ...allRecords.filter(r=>r.empCode!=='TEST').map(r=>r.empCode)])].sort();
   const months=listRecordMonthKeys(allRecords);
   const cur=currentMonthKey();
   ['f-emp','loc-f-emp','manual-ts-emp'].forEach(id=>{
@@ -400,7 +400,7 @@ function renderDash(){
   const todayRecs=allRecords.filter(r=>isRecordToday(r));
   const totalMins=allRecords.reduce((s,r)=>{const m=calcHours(r.punchIn,r.punchOut);return s+(m||0);},0);
   document.getElementById('dash-stats').innerHTML=`
-    <div class="stat-card accent"><div class="stat-val">${Object.keys(EMPLOYEES).length}</div><div class="stat-label">Total employees</div></div>
+    <div class="stat-card accent"><div class="stat-val">${visibleEmployeeCount()}</div><div class="stat-label">Total employees</div></div>
     <div class="stat-card green"><div class="stat-val">${todayRecs.length}</div><div class="stat-label">Check-ins today</div></div>
     <div class="stat-card orange"><div class="stat-val">${allRecords.length}</div><div class="stat-label">Total records</div></div>
     <div class="stat-card purple"><div class="stat-val">${decimalHours(totalMins)}</div><div class="stat-label">Total hours logged</div></div>`;
@@ -428,6 +428,9 @@ function renderDash(){
 }
 
 /* ── ALL RECORDS ── */
+function visibleEmployeeEntries(){return Object.entries(EMPLOYEES).filter(([code,emp])=>code!=='TEST'&&!emp.testOnly);}
+function visibleEmployeeCodes(){return visibleEmployeeEntries().map(([code])=>code);}
+function visibleEmployeeCount(){return visibleEmployeeEntries().length;}
 function adminProcVisitVendor(v){return v.vendorName||v.clientName||'Vendor';}
 function adminProcVisitIn(v){return v.checkIn||v.punchIn||'';}
 function adminProcVisitOut(v){return v.checkOut||v.punchOut||'';}
@@ -563,7 +566,7 @@ function renderHours(){
 /* ── EMPLOYEES ── */
 function renderEmpDir(){
   ensureEmployeeProfilePhotoStyle();
-  const entries=Object.entries(EMPLOYEES).sort((a,b)=>a[0].localeCompare(b[0]));
+  const entries=visibleEmployeeEntries().sort((a,b)=>a[0].localeCompare(b[0]));
   let html=`<div class="table-wrap"><table><thead><tr><th>Photo</th><th>Code</th><th>Name</th><th>Designation</th><th>Department</th><th>Email</th><th>Status</th><th>Total Records</th><th>Total Hours</th>${ADMIN_CAN_WRITE?'<th>Actions</th>':''}</tr></thead><tbody>`;
   entries.forEach(([code,emp])=>{
     const recs=allRecords.filter(r=>r.empCode===code);
@@ -753,7 +756,7 @@ function downloadManualTsTemplate(){
   if(typeof XLSX==='undefined'){alert('Excel library not loaded. Check your internet connection and refresh.');return;}
   const rows=[];
   const dates=manualTsDateList();
-  Object.keys(EMPLOYEES).forEach(code=>{
+  visibleEmployeeCodes().forEach(code=>{
     const emp=EMPLOYEES[code];
     dates.forEach(dateISO=>{
       rows.push({
