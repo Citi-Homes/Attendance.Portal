@@ -14,7 +14,7 @@
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
-<script src="shared.js?v=manual-any-month-20260728"></script>
+<script src="shared.js?v=procurement-vendor-flow-20260811"></script>
 <script>const ADMIN_SESSION=requireAdmin();const ADMIN_CAN_WRITE=ADMIN_SESSION.adminMode!=='readonly';</script>
 
 <header class="topbar">
@@ -428,6 +428,13 @@ function renderDash(){
 }
 
 /* ── ALL RECORDS ── */
+function adminProcVisitVendor(v){return v.vendorName||v.clientName||'Vendor';}
+function adminProcVisitIn(v){return v.checkIn||v.punchIn||'';}
+function adminProcVisitOut(v){return v.checkOut||v.punchOut||'';}
+function adminProcTimeOnly(t){return t?(String(t).includes('·')?String(t).split('·')[1].trim():String(t)):'—';}
+function adminProcVisitsHtml(visits){
+  return visits&&visits.length?'<div style="font-size:10px;line-height:1.6;color:var(--text2)">'+visits.map((v,i)=>'<div><b>Vendor '+(i+1)+':</b> '+escapeHtml(adminProcVisitVendor(v))+'<br><span style="color:var(--text3)">In: '+escapeHtml(adminProcTimeOnly(adminProcVisitIn(v)))+' | Out: '+escapeHtml(adminProcTimeOnly(adminProcVisitOut(v)))+'</span></div>').join('')+'</div>':'';
+}
 function renderAllRecs(){
   const fEmp=document.getElementById('f-emp').value;
   const fCat=document.getElementById('f-cat').value;
@@ -450,7 +457,7 @@ function renderAllRecs(){
     const mins=calcHours(r.punchIn,r.punchOut);
     let det='';
     if(r.category==='Interview'&&r.extra)det=`<div style="font-size:10px;line-height:1.6;color:var(--text2)"><div>${r.extra.ivLocation||''}</div><div><b>Pos:</b>${r.extra.position||''}</div><div>${r.extra.candidateName||''}</div></div>`;
-    else if(r.category==='Procurement'&&r.extra&&r.extra.visits)det=`<div style="font-size:10px;line-height:1.6;color:var(--text2)">${r.extra.visits.map((v,i)=>`<div>V${i+1}: ${v.clientName}</div>`).join('')}</div>`;
+    else if(r.category==='Procurement'&&r.extra&&r.extra.visits)det=adminProcVisitsHtml(r.extra.visits);
     const inT=r.punchIn.includes('·')?r.punchIn.split('·')[1].trim():r.punchIn;
     const outT=r.punchOut?(r.punchOut.includes('·')?r.punchOut.split('·')[1].trim():r.punchOut):'';
     const dateT=r.punchIn.includes('·')?r.punchIn.split('·')[0].trim():r.punchIn.substring(0,15);
