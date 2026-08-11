@@ -209,7 +209,7 @@ footer{
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
-<script src="shared.js?v=test-employee-viewer-20260811"></script>
+<script src="shared.js?v=test-lockout-bypass-20260811"></script>
 <script>
 "use strict";
 
@@ -241,12 +241,14 @@ function togglePass(inputId, btn) {
 
 async function doEmployeeLogin() {
   if (loginBusy) return;
-  const lockMsg = loginLockoutMessage();
-  if (lockMsg) { showErr(lockMsg); return; }
 
   const code = document.getElementById("emp-code").value.trim().toUpperCase();
   const pass = document.getElementById("emp-pass").value;
   const emp = EMPLOYEES[code];
+  const isTestLogin = code === "TEST";
+
+  const lockMsg = isTestLogin ? null : loginLockoutMessage();
+  if (lockMsg) { showErr(lockMsg); return; }
 
   if (!code) { showErr("Please enter your employee code."); return; }
   if (!pass) { showErr("Please enter your password."); return; }
@@ -258,12 +260,12 @@ async function doEmployeeLogin() {
     if (!getConfig()) { showErr("Server config missing. Contact your administrator."); return; }
     const ok = await verifyEmployeePassword(code, pass);
     if (!ok) {
-      recordFailedLogin();
-      const msg = loginLockoutMessage();
+      if (!isTestLogin) recordFailedLogin();
+      const msg = isTestLogin ? null : loginLockoutMessage();
       showErr(msg || "Incorrect password.");
       return;
     }
-    clearLoginAttempts();
+    if (!isTestLogin) clearLoginAttempts();
     setSession({ role: "employee", empCode: code });
     navigateReplace("employee");
   } catch (e) {
