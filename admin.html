@@ -14,7 +14,7 @@
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
-<script src="shared.js?v=test-lockout-bypass-20260811"></script>
+<script src="shared.js?v=export-scope-format-20260812"></script>
 <script>const ADMIN_SESSION=requireAdmin();const ADMIN_CAN_WRITE=ADMIN_SESSION.adminMode!=='readonly';</script>
 
 <header class="topbar">
@@ -115,6 +115,7 @@
       <div class="filters">
         <select id="f-emp" onchange="renderAllRecs()"><option value="">All employees</option></select>
         <select id="f-cat" onchange="renderAllRecs()"><option value="">All categories</option><option>Office</option><option>Procurement</option><option>Interview</option></select>
+        <select id="f-period-scope" onchange="renderAllRecs()"><option value="month">Monthly</option><option value="year">Whole year</option></select>
         <select id="f-month" onchange="renderAllRecs()"><option value="">All months</option></select>
         <select id="f-status" onchange="renderAllRecs()"><option value="">All statuses</option><option>Completed</option><option>Recorded</option><option>In Progress</option><option>Punched In</option></select>
         <input type="text" id="f-search" placeholder="Search name..." oninput="renderAllRecs()" style="width:150px"/>
@@ -377,7 +378,7 @@ function populateFilters(){
     const prev=s.value;
     s.innerHTML=monthOptionsHtml(months,id==='hr-month'?'All time':'All months');
     if(prev&&[...s.options].some(o=>o.text===prev)) s.value=prev;
-    else if(id==='hr-month'&&[...s.options].some(o=>o.text===cur)) s.value=cur;
+    else if((id==='hr-month'||id==='f-month')&&[...s.options].some(o=>o.text===cur)) s.value=cur;
   });
 }
 
@@ -438,20 +439,59 @@ function adminProcTimeOnly(t){return t?(String(t).includes('·')?String(t).split
 function adminProcVisitsHtml(visits){
   return visits&&visits.length?'<div style="font-size:10px;line-height:1.6;color:var(--text2)">'+visits.map((v,i)=>'<div><b>Vendor '+(i+1)+':</b> '+escapeHtml(adminProcVisitVendor(v))+'<br><span style="color:var(--text3)">In: '+escapeHtml(adminProcTimeOnly(adminProcVisitIn(v)))+' | Out: '+escapeHtml(adminProcTimeOnly(adminProcVisitOut(v)))+'</span></div>').join('')+'</div>':'';
 }
-function renderAllRecs(){
+function selectedAllRecordsScope(){return document.getElementById('f-period-scope')?.value||'month';}
+function selectedAllRecordsMonth(){return document.getElementById('f-month')?.value||'';}
+function monthKeyYear(monthKey){const m=String(monthKey||'').match(/(\d{4})$/);return m?m[1]:'';}
+function recordMatchesAllRecordsPeriod(rec){
+  const monthKey=selectedAllRecordsMonth();
+  if(!monthKey) return true;
+  if(selectedAllRecordsScope()==='year') return monthKeyYear(recordMonthKey(rec))===monthKeyYear(monthKey);
+  return recordMatchesMonth(rec,monthKey);
+}
+function getFilteredAllRecords(){
   const fEmp=document.getElementById('f-emp').value;
   const fCat=document.getElementById('f-cat').value;
-  const fMonth=document.getElementById('f-month').value;
   const fStatus=document.getElementById('f-status').value;
   const fSearch=document.getElementById('f-search').value.toLowerCase();
-  let recs=allRecords.filter(r=>{
+  return allRecords.filter(r=>{
     if(fEmp&&r.empCode!==fEmp)return false;
     if(fCat&&r.category!==fCat)return false;
-    if(fMonth&&!recordMatchesMonth(r,fMonth))return false;
+    if(!recordMatchesAllRecordsPeriod(r))return false;
     if(fStatus&&r.status!==fStatus)return false;
     if(fSearch&&!r.empName.toLowerCase().includes(fSearch)&&!r.empCode.toLowerCase().includes(fSearch))return false;
     return true;
   });
+}
+function csvCell(value){return '"'+String(value??'').replace(/"/g,'""')+'"';}
+function recordDateDDMMYYYY(rec){
+  const iso=extractRecordDateISO(rec);
+  if(!iso)return '';
+  const [y,m,d]=iso.split('-');
+  return d+'/'+m+'/'+y;
+}
+function recordTimeOnly(value){return value?(String(value).includes('·')?String(value).split('·')[1].trim():String(value).trim()):'';}
+function exportDetailsText(rec){
+  if(rec.category==='Interview'&&rec.extra){
+    return ['Location: '+(rec.extra.ivLocation||''),'Position: '+(rec.extra.position||''),'Candidate: '+(rec.extra.candidateName||'')].filter(Boolean).join(' | ');
+  }
+  if(rec.category==='Procurement'&&rec.extra&&rec.extra.visits){
+    return rec.extra.visits.map((v,i)=>{
+      const name=adminProcVisitVendor(v);
+      const inT=adminProcTimeOnly(adminProcVisitIn(v));
+      const outT=adminProcTimeOnly(adminProcVisitOut(v));
+      return 'Vendor '+(i+1)+': '+name+' In: '+inT+' Out: '+outT;
+    }).join(' | ');
+  }
+  return '';
+}
+function exportScopeFilePart(){
+  const monthKey=selectedAllRecordsMonth()||currentMonthKey();
+  const clean=monthKey.replace(/\s+/g,'_');
+  return selectedAllRecordsScope()==='year'?'year_'+(monthKeyYear(monthKey)||new Date().getFullYear()):'month_'+clean;
+}
+
+function renderAllRecs(){
+  let recs=getFilteredAllRecords();
   document.getElementById('all-rec-count').textContent=recs.length+' record'+(recs.length!==1?'s':'');
   const wrap=document.getElementById('all-recs-wrap');
   if(!recs.length){wrap.innerHTML='<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No records match the current filters.</p></div>';return;}
@@ -704,13 +744,28 @@ async function confirmDelete(){
 
 /* ── EXPORT CSVs ── */
 function exportAllCSV(){
-  if(!allRecords.length){alert('No records.');return;}
-  const hdr=['ID','EmpCode','Name','Designation','Department','Category','PunchIn','PunchOut','Hours(decimal)','Status','Remarks'];
-  const rows=allRecords.map(r=>{
+  const recs=getFilteredAllRecords();
+  if(!recs.length){alert('No records match the selected export filters.');return;}
+  const hdr=['ID','Date','Emp Code','Name','Designation','Department','Category','Punch In Time','Punch Out Time','Hours','Status','Details','Remarks'];
+  const rows=recs.map(r=>{
     const m=calcHours(r.punchIn,r.punchOut);
-    return [r.id,r.empCode,`"${r.empName}"`,`"${r.designation}"`,`"${r.department}"`,r.category,`"${r.punchIn}"`,`"${r.punchOut||''}"`,decimalHours(m),r.status,`"${(r.remarks||'').replace(/"/g,'""')}"`].join(',');
+    return [
+      r.id,
+      recordDateDDMMYYYY(r),
+      r.empCode,
+      r.empName,
+      r.designation,
+      r.department,
+      r.category,
+      recordTimeOnly(r.punchIn),
+      recordTimeOnly(r.punchOut),
+      decimalHours(m),
+      r.status,
+      exportDetailsText(r),
+      r.remarks||''
+    ].map(csvCell).join(',');
   });
-  dl([hdr.join(','),...rows].join('\n'),'attendance_all_'+todayISO()+'.csv');
+  dl([hdr.join(','),...rows].join('\n'),'attendance_'+exportScopeFilePart()+'_'+todayISO()+'.csv');
 }
 function exportLocCSV(){
   const hdr=['EmpCode','Name','Category','Date','PunchInTime','LocIn_Lat','LocIn_Lng','AccuracyIn','PunchOutTime','LocOut_Lat','LocOut_Lng','AccuracyOut','Source'];
