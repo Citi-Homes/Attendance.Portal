@@ -1273,7 +1273,7 @@ function ensureEmployeeProfilePhotoStyle() {
 }
 // -- Android app update notice ------------------------------------------------
 const APP_UPDATE_INFO_URL = "https://mnfrbyzdubsgnhxrzuxx.supabase.co/storage/v1/object/public/apk-downloads/app-latest.json";
-const APP_DOWNLOAD_URL = "https://mnfrbyzdubsgnhxrzuxx.supabase.co/storage/v1/object/public/apk-downloads/CitiHomesAttendance.apk";
+const APP_DOWNLOAD_URL = "https://mnfrbyzdubsgnhxrzuxx.supabase.co/storage/v1/object/public/apk-downloads/CitiHomesAttendance.apk?v=1.6";
 let _appUpdateCheckStarted = false;
 
 function canShowAppUpdateNotice(expectedRoute) {
