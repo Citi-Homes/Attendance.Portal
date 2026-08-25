@@ -38,7 +38,19 @@ jobs:
 
       - name: Build debug APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: |
+          set +e
+          ./gradlew assembleDebug --stacktrace --warning-mode all 2>&1 | tee ../gradle-build.log
+          status=${PIPESTATUS[0]}
+          echo "$status" > ../gradle-status.txt
+          exit "$status"
+
+      - name: Upload Gradle log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log
+          path: gradle-build.log
 
       - name: Prepare APK
         run: |
