@@ -8,9 +8,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.vfs.watch=false
 
     steps:
       - uses: actions/checkout@v4
@@ -38,9 +45,10 @@ jobs:
 
       - name: Build debug APK
         working-directory: android
+        timeout-minutes: 12
         run: |
           set +e
-          ./gradlew assembleDebug --stacktrace --warning-mode all 2>&1 | tee ../gradle-build.log
+          ./gradlew --no-daemon assembleDebug --stacktrace --warning-mode all 2>&1 | tee ../gradle-build.log
           status=${PIPESTATUS[0]}
           echo "$status" > ../gradle-status.txt
           exit "$status"
