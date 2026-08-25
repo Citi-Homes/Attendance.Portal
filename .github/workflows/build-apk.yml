@@ -70,25 +70,3 @@ jobs:
         with:
           name: CitiHomesAttendance.apk
           path: apk/CitiHomesAttendance.apk
-
-      - name: Publish APK to Supabase Storage
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          set -euo pipefail
-          URL="${SUPABASE_URL:-https://mnfrbyzdubsgnhxrzuxx.supabase.co}"
-          KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SUPABASE_ANON_KEY:-}}"
-          if [ -z "$KEY" ]; then
-            echo "No Supabase upload key configured. APK artifact was built but not published."
-            exit 0
-          fi
-          curl --fail-with-body \
-            --request POST \
-            "$URL/storage/v1/object/apk-downloads/CitiHomesAttendance.apk" \
-            --header "Authorization: Bearer $KEY" \
-            --header "apikey: $KEY" \
-            --header "Content-Type: application/vnd.android.package-archive" \
-            --header "x-upsert: true" \
-            --data-binary "@apk/CitiHomesAttendance.apk"
