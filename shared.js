@@ -1154,7 +1154,7 @@ function mountEmployeeProfilePhoto(session) {
   panel.className = "employee-profile-photo";
   panel.innerHTML = [
     "<button class=\"profile-photo-avatar\" type=\"button\" data-profile-photo-change aria-label=\"Change profile photo\"><span></span></button>",
-    "<div class=\"profile-photo-copy\"><strong>Profile Photo</strong><small>" + escapeHtml(name) + "</small></div>",
+    "<div class=\"profile-photo-copy\"><strong>Profile Photo</strong><small data-profile-photo-status data-profile-photo-name=\"" + escapeHtml(name) + "\">" + escapeHtml(name) + "</small></div>",
     "<div class=\"profile-photo-actions\">",
     "<button class=\"profile-photo-btn profile-photo-primary\" type=\"button\" data-profile-photo-change>Change</button>",
     "<button class=\"profile-photo-btn\" type=\"button\" data-profile-photo-remove>Remove</button>",
@@ -1173,6 +1173,7 @@ function mountEmployeeProfilePhoto(session) {
     try {
       await saveEmployeeProfilePhotoAsync(session.empCode, "");
       renderEmployeeProfilePhoto(panel, session.empCode, name);
+      setEmployeeProfilePhotoStatus(panel, "Photo removed");
     } catch (err) {
       notifySaveError(err);
     } finally {
@@ -1188,6 +1189,7 @@ function mountEmployeeProfilePhoto(session) {
       const dataUrl = await resizeEmployeeProfilePhoto(file);
       await saveEmployeeProfilePhotoAsync(session.empCode, dataUrl);
       renderEmployeeProfilePhoto(panel, session.empCode, name);
+      setEmployeeProfilePhotoStatus(panel, "Photo saved");
     } catch (err) {
       if (String(err && err.message ? err.message : err).includes("valid")) alert("Please choose a valid photo.");
       else notifySaveError(err);
@@ -1204,6 +1206,17 @@ function mountEmployeeProfilePhoto(session) {
     }
     renderEmployeeProfilePhoto(panel, session.empCode, name);
   });
+}
+
+function setEmployeeProfilePhotoStatus(panel, text) {
+  const el = panel && panel.querySelector("[data-profile-photo-status]");
+  if (!el) return;
+  el.textContent = text || el.getAttribute("data-profile-photo-name") || "";
+  if (text) {
+    setTimeout(() => {
+      if (el.textContent === text) el.textContent = el.getAttribute("data-profile-photo-name") || "";
+    }, 2200);
+  }
 }
 
 function employeeProfilePhotoKey(empCode) {
@@ -1235,6 +1248,7 @@ function employeeProfileAvatarHtml(empCode, name) {
 function setEmployeeProfilePhotoBusy(panel, busy) {
   panel.querySelectorAll("button").forEach(btn => btn.disabled = !!busy);
   panel.classList.toggle("is-saving", !!busy);
+  if (busy) setEmployeeProfilePhotoStatus(panel, "Saving...");
 }
 
 function resizeEmployeeProfilePhoto(file) {
