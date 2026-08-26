@@ -1286,8 +1286,8 @@ function ensureEmployeeProfilePhotoStyle() {
   document.head.appendChild(style);
 }
 // -- Android app update notice ------------------------------------------------
-const APP_UPDATE_INFO_URL = "apk-downloads/app-latest.json?v=1.1";
-const APP_DOWNLOAD_URL = "apk-downloads/CitiHomesAttendance.apk?v=1.1";
+const APP_UPDATE_INFO_URL = "https://citi-homes.github.io/Attendance.Portal/apk-downloads/app-latest.json";
+const APP_DOWNLOAD_URL = "https://citi-homes.github.io/Attendance.Portal/apk-downloads/CitiHomesAttendance.apk?v=1.1";
 let _appUpdateCheckStarted = false;
 
 function canShowAppUpdateNotice(expectedRoute) {
