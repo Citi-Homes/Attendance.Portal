@@ -182,6 +182,24 @@
   </div>
 </div>
 
+<!-- Punch-In Reminder -->
+<div class="overlay" id="ov-punch-in-reminder">
+  <div class="modal">
+    <div class="modal-title">Punch in reminder</div>
+    <div class="modal-sub">It is time to mark your attendance</div>
+    <div class="notice notice-info" style="margin-top:14px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Please punch in to start your attendance for today.
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="dismissPunchInReminder()">Later</button>
+      <button class="btn btn-primary" onclick="openReminderPunchIn()">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Punch in now
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Procurement Punch-In -->
 <div class="overlay" id="ov-proc-in">
   <div class="modal">
@@ -438,11 +456,17 @@ function silentLocOut(rec){
   refreshRecordLoc(rec,'locOut',()=>persistRec(rec).catch(()=>{}));
 }
 
-/* ── Office punch-out reminder ── */
+/* ── Office punch reminders ── */
+let punchInReminderTimer=null;
 let punchOutReminderTimer=null;
+const PUNCH_IN_REMINDER_HOUR=9;
+const PUNCH_IN_REMINDER_MINUTE=55;
 const PUNCH_OUT_REMINDER_HOUR=17;
-const PUNCH_OUT_REMINDER_MINUTE=50;
+const PUNCH_OUT_REMINDER_MINUTE=55;
 const PUNCH_OUT_NOTIFICATION_TITLE='Citi Homes Attendance';
+function punchInReminderKey(){
+  return `office_punch_in_reminder_${EMPCODE}_${todayISO()}`;
+}
 function officePunchOutReminderKey(rec){
   return `office_punch_out_reminder_${EMPCODE}_${todayISO()}_${rec&&rec.id?rec.id:'active'}`;
 }
@@ -460,7 +484,7 @@ function sendPunchOutNotification(rec){
   if(!canUsePunchOutNotification()||Notification.permission!=='granted') return;
   try{
     const n=new Notification(PUNCH_OUT_NOTIFICATION_TITLE,{
-      body:'It is 17:50. Please punch out before leaving for the day.',
+      body:'It is 17:55. Please punch out before leaving for the day.',
       tag:officePunchOutReminderKey(rec),
       renotify:true,
       requireInteraction:true
@@ -468,12 +492,40 @@ function sendPunchOutNotification(rec){
     n.onclick=()=>{try{window.focus();}catch(_){} openReminderPunchOut(); n.close();};
   }catch(_){}
 }
+function sendPunchInNotification(){
+  if(!canUsePunchOutNotification()||Notification.permission!=='granted') return;
+  try{
+    const n=new Notification(PUNCH_OUT_NOTIFICATION_TITLE,{
+      body:'It is 09:55. Please punch in to start your attendance.',
+      tag:punchInReminderKey(),
+      renotify:true,
+      requireInteraction:true
+    });
+    n.onclick=()=>{try{window.focus();}catch(_){} openReminderPunchIn(); n.close();};
+  }catch(_){}
+}
 function getOpenOfficeRecord(){
   return allRecords.find(r=>r.empCode===EMPCODE&&isRecordToday(r)&&r.category==='Office'&&r.status==='Punched In'&&!r.punchOut);
+}
+function hasTodayAttendanceRecord(){
+  return allRecords.some(r=>r.empCode===EMPCODE&&isRecordToday(r));
+}
+function isPunchInReminderDue(){
+  const now=new Date();
+  return now.getHours()>PUNCH_IN_REMINDER_HOUR||(now.getHours()===PUNCH_IN_REMINDER_HOUR&&now.getMinutes()>=PUNCH_IN_REMINDER_MINUTE);
 }
 function isPunchOutReminderDue(){
   const now=new Date();
   return now.getHours()>PUNCH_OUT_REMINDER_HOUR||(now.getHours()===PUNCH_OUT_REMINDER_HOUR&&now.getMinutes()>=PUNCH_OUT_REMINDER_MINUTE);
+}
+function schedulePunchInReminder(){
+  if(punchInReminderTimer) clearTimeout(punchInReminderTimer);
+  punchInReminderTimer=null;
+  if(isSundayToday()||hasTodayAttendanceRecord()) return;
+  const target=new Date();
+  target.setHours(PUNCH_IN_REMINDER_HOUR,PUNCH_IN_REMINDER_MINUTE,0,0);
+  const delay=Math.max(0,target.getTime()-Date.now());
+  punchInReminderTimer=setTimeout(showPunchInReminderIfDue,delay);
 }
 function schedulePunchOutReminder(){
   if(punchOutReminderTimer) clearTimeout(punchOutReminderTimer);
@@ -484,6 +536,14 @@ function schedulePunchOutReminder(){
   target.setHours(PUNCH_OUT_REMINDER_HOUR,PUNCH_OUT_REMINDER_MINUTE,0,0);
   const delay=Math.max(0,target.getTime()-Date.now());
   punchOutReminderTimer=setTimeout(showPunchOutReminderIfDue,delay);
+}
+function showPunchInReminderIfDue(){
+  if(isSundayToday()||hasTodayAttendanceRecord()||!isPunchInReminderDue()) return schedulePunchInReminder();
+  const key=punchInReminderKey();
+  if(sessionStorage.getItem(key)==='shown') return;
+  sessionStorage.setItem(key,'shown');
+  sendPunchInNotification();
+  openOv('ov-punch-in-reminder');
 }
 function showPunchOutReminderIfDue(){
   const rec=getOpenOfficeRecord();
@@ -498,6 +558,13 @@ function showPunchOutReminderIfDue(){
 function dismissPunchOutReminder(){
   closeOv('ov-punch-reminder');
 }
+function dismissPunchInReminder(){
+  closeOv('ov-punch-in-reminder');
+}
+function openReminderPunchIn(){
+  closeOv('ov-punch-in-reminder');
+  beginFlow();
+}
 function openReminderPunchOut(){
   const rec=getOpenOfficeRecord();
   closeOv('ov-punch-reminder');
@@ -506,6 +573,7 @@ function openReminderPunchOut(){
 
 /* ── Today card ── */
 function renderTodayCard(){
+  setTimeout(schedulePunchInReminder,0);
   setTimeout(schedulePunchOutReminder,0);
   const todayStr=fmtDate(new Date());
   const card=document.getElementById('today-card');
