@@ -143,6 +143,11 @@ function routeFor(key) {
   return getAppBaseUrl() + file;
 }
 
+function authRedirectFor(key) {
+  const file = ROUTE_FILES[key] || key;
+  return getAppBaseUrl() + file;
+}
+
 const ROUTES = ROUTE_FILES;
 
 const SESSION_KEY = "att_session_v4";
@@ -318,7 +323,7 @@ async function createEmployeePassword(email, password) {
   const { error } = await client.auth.signUp({
     email: normalizeEmail(email),
     password,
-    options: { emailRedirectTo: routeFor("login") }
+    options: { emailRedirectTo: authRedirectFor("login") }
   });
   if (error) throw new Error(error.message || "Could not create password.");
   return profile;
@@ -332,7 +337,7 @@ async function sendEmployeePasswordReset(email) {
   const { error } = await client.auth.signInWithOtp({
     email: normalizeEmail(email),
     options: {
-      emailRedirectTo: routeFor("login"),
+      emailRedirectTo: authRedirectFor("login"),
       shouldCreateUser: true
     }
   });
