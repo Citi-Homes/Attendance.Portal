@@ -13,6 +13,7 @@
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared.js"></script>
 <script>const SESSION=requireEmployee();const EMP=SESSION.emp;const EMPCODE=SESSION.empCode;</script>
 
@@ -24,6 +25,10 @@
   </a>
   <div class="topbar-mid">
     <span id="live-clock"></span>
+    <button class="btn btn-sm btn-ghost" onclick="openPasswordChange()">
+      <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      Password
+    </button>
     <button class="btn btn-sm btn-ghost" onclick="logout()">
       <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
       Sign out
@@ -106,6 +111,22 @@
 </div>
 
 <!-- ══════════ MODALS ══════════ -->
+
+<!-- Password -->
+<div class="overlay" id="ov-password">
+  <div class="modal">
+    <div class="modal-title">Change password</div>
+    <div class="modal-sub">This updates your attendance login password.</div>
+    <div class="field">
+      <label>New Password</label>
+      <input type="password" id="new-login-pass" placeholder="Minimum 6 characters" autocomplete="new-password"/>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveLoginPassword()">Save password</button>
+    </div>
+  </div>
+</div>
 
 <!-- Category -->
 <div class="overlay" id="ov-cat">
@@ -435,6 +456,23 @@ async function showSection(id, el){
 function openOv(id){document.getElementById(id).classList.add('open');}
 function closeOv(id){document.getElementById(id).classList.remove('open');}
 function closeAll(){document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open'));}
+function openPasswordChange(){
+  const input=document.getElementById('new-login-pass');
+  if(input) input.value='';
+  openOv('ov-password');
+}
+async function saveLoginPassword(){
+  const input=document.getElementById('new-login-pass');
+  const pass=input.value;
+  if(!pass||pass.length<6){alert('Password must be at least 6 characters.');return;}
+  try{
+    await updateCurrentEmployeePassword(pass);
+    closeAll();
+    alert('Password updated successfully.');
+  }catch(err){
+    alert((err&&err.message)||'Could not update password. If your session expired, sign out and use Forgot password.');
+  }
+}
 function setSteps(id,cur,tot){
   const el=document.getElementById(id);if(!el)return;
   el.innerHTML='';

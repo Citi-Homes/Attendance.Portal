@@ -161,7 +161,7 @@ function getConfig() {
 
 function isLoginConfigured() {
   const cfg = getConfig();
-  return !!(cfg && cfg.sessionSecret && cfg.employeePassHashes && cfg.admins && cfg.admins.length);
+  return !!(cfg && cfg.sessionSecret && cfg.admins && cfg.admins.length);
 }
 
 function ensureLoginConfig() {
@@ -253,6 +253,95 @@ async function verifyEmployeePassword(code, password) {
   return (await sha256(password)) === hash;
 }
 
+let _supabaseClient = null;
+
+function getSupabaseAuthClient() {
+  const cfg = ensureConfig();
+  if (!window.supabase || !window.supabase.createClient) {
+    throw new Error("Supabase login library is not loaded. Please refresh and try again.");
+  }
+  if (!_supabaseClient) {
+    _supabaseClient = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
+  }
+  return _supabaseClient;
+}
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function findEmployeeByEmail(email) {
+  const needle = normalizeEmail(email);
+  if (!needle) return null;
+  const match = Object.entries(EMPLOYEES).find(([, emp]) => {
+    return emp && emp.status === "Active" && normalizeEmail(emp.email) === needle;
+  });
+  return match ? { code: match[0], emp: match[1] } : null;
+}
+
+async function loadEmployeeDirectoryAsync() {
+  requireSupabaseStorage();
+  await probeRecordDateColumn();
+  const sb = supabaseConfig();
+  const url = sb.url + '/rest/v1/' + REC_TABLE + '?select=*&source=eq.employee-master&order=id.desc';
+  const res = await fetch(url, { headers: sbHeaders() });
+  if (!res.ok) throw new Error('Failed to load employee directory: ' + (await res.text()));
+  const rows = (await res.json()).map(rowToRecord);
+  applyEmployeeMasterRecords(rows);
+  return EMPLOYEES;
+}
+
+async function signInEmployeeWithEmail(email, password) {
+  await loadEmployeeDirectoryAsync();
+  const profile = findEmployeeByEmail(email);
+  if (!profile) throw new Error("This email is not registered for attendance. Please contact HR.");
+  const client = getSupabaseAuthClient();
+  const { error } = await client.auth.signInWithPassword({
+    email: normalizeEmail(email),
+    password
+  });
+  if (error) throw new Error(error.message || "Invalid email or password.");
+  return profile;
+}
+
+async function createEmployeePassword(email, password) {
+  await loadEmployeeDirectoryAsync();
+  const profile = findEmployeeByEmail(email);
+  if (!profile) throw new Error("This email is not registered for attendance. Please contact HR.");
+  const client = getSupabaseAuthClient();
+  const { error } = await client.auth.signUp({
+    email: normalizeEmail(email),
+    password,
+    options: { emailRedirectTo: routeFor("login") }
+  });
+  if (error) throw new Error(error.message || "Could not create password.");
+  return profile;
+}
+
+async function sendEmployeePasswordReset(email) {
+  await loadEmployeeDirectoryAsync();
+  const profile = findEmployeeByEmail(email);
+  if (!profile) throw new Error("This email is not registered for attendance. Please contact HR.");
+  const client = getSupabaseAuthClient();
+  const { error } = await client.auth.resetPasswordForEmail(normalizeEmail(email), {
+    redirectTo: routeFor("login")
+  });
+  if (error) throw new Error(error.message || "Could not send password reset email.");
+  return profile;
+}
+
+async function updateCurrentEmployeePassword(password) {
+  const client = getSupabaseAuthClient();
+  const { error } = await client.auth.updateUser({ password });
+  if (error) throw new Error(error.message || "Could not update password.");
+}
+
 async function verifyAdminCredentials(user, password) {
   const cfg = ensureLoginConfig();
   const admins = cfg.admins || (cfg.admin ? [cfg.admin] : []);
@@ -296,7 +385,7 @@ function parseSession(raw) {
 
     if (payload.role === "employee" || payload.role === "team member") {
       const empCode = payload.empCode || payload.employeeCode;
-      const emp = empCode ? EMPLOYEES[empCode] : null;
+      const emp = empCode ? (EMPLOYEES[empCode] || payload.emp || null) : null;
       if (!empCode || !emp) return null;
       return { role: "employee", empCode, emp: sanitizeEmp(emp) };
     }
@@ -319,6 +408,7 @@ function setSession(data) {
   const payload = {
     role: data.role,
     empCode: data.empCode || null,
+    emp: data.role === "employee" ? sanitizeEmp(data.emp || EMPLOYEES[data.empCode] || null) : null,
     adminMode: data.role === "admin" ? (data.adminMode || "full") : null,
     iat: Date.now(),
     exp: Date.now() + SESSION_TTL_MS
@@ -339,12 +429,13 @@ function requireEmployee() {
     navigateReplace("login");
     throw 0;
   }
-  const fresh = EMPLOYEES[s.empCode];
+  const fresh = EMPLOYEES[s.empCode] || s.emp;
   if (!fresh || fresh.status !== "Active") {
     clearSession();
     navigateReplace("login");
     throw 0;
   }
+  setEmployeeMaster(s.empCode, fresh);
   const session = { role: "employee", empCode: s.empCode, emp: fresh };
   setTimeout(() => initAppUpdateNotice("employee"), 0);
   setTimeout(() => initEmployeeProfilePhoto(session), 0);
@@ -374,6 +465,10 @@ function requireAdminWrite(actionLabel) {
 
 function logout() {
   clearSession();
+  try {
+    const client = _supabaseClient || (window.supabase && getConfig()?.supabaseUrl ? getSupabaseAuthClient() : null);
+    if (client) client.auth.signOut().catch(() => {});
+  } catch (_) {}
   navigateReplace("login");
 }
 

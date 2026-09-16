@@ -61,7 +61,12 @@ body::after{
 .btn-full{width:100%;padding:11px;background:var(--tab);border:none;border-radius:var(--r);color:var(--tab-text);font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:flex;align-items:center;justify-content:center;gap:8px}
 .btn-full:hover{background:var(--tab-dim)}
 .btn-full svg{width:16px;height:16px;stroke:currentColor;fill:none;flex-shrink:0}
+.link-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:13px}
+.link-btn{background:none;border:0;color:var(--text2);font:inherit;font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.link-btn:hover{color:var(--text)}
+.form-note{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:16px;text-align:center}
 .err{background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:10px 13px;font-size:13px;color:var(--red);margin-bottom:16px;display:none}
+.err.ok{background:var(--green-bg)!important;border-color:var(--green)!important;color:var(--green)!important}
 .hint{text-align:center;margin-top:18px;font-size:12px;color:var(--text3)}
 .hint strong{color:var(--text2)}
 footer{margin-top:28px;text-align:center;font-size:11px;color:var(--text3)}
@@ -163,8 +168,8 @@ footer{
 
     <form id="form-employee" autocomplete="on" onsubmit="event.preventDefault();doEmployeeLogin()">
       <div class="field">
-        <label>Employee Code</label>
-        <input type="text" id="emp-code" name="username" placeholder="e.g. CH6" autocomplete="username" autocapitalize="characters" oninput="this.value=this.value.toUpperCase()" />
+        <label>Email</label>
+        <input type="email" id="emp-email" name="username" placeholder="name@citihomes.ae" autocomplete="username" inputmode="email" onkeydown="if(event.key==='Enter')doEmployeeLogin()" />
       </div>
       <div class="field">
         <label>Password</label>
@@ -180,6 +185,45 @@ footer{
         <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
         Sign in
       </button>
+      <div class="link-row">
+        <button type="button" class="link-btn" onclick="showEmployeePasswordSetup()">Create password</button>
+        <button type="button" class="link-btn" onclick="sendPasswordResetFromLogin()">Forgot password?</button>
+      </div>
+    </form>
+
+    <form id="form-password-setup" style="display:none" autocomplete="on" onsubmit="event.preventDefault();createPasswordFromLogin()">
+      <p class="form-note">Use the same email saved by admin in the employee directory.</p>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="setup-email" name="username" placeholder="name@citihomes.ae" autocomplete="username" inputmode="email" />
+      </div>
+      <div class="field">
+        <label>New Password</label>
+        <div class="pass-wrap">
+          <input type="password" id="setup-pass" name="new-password" placeholder="Minimum 6 characters" autocomplete="new-password" />
+          <button type="button" class="pass-toggle" onclick="togglePass('setup-pass',this)" aria-label="Show password" title="Show password">
+            <svg class="icon-show" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="icon-hide" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn-full" type="submit">Create password</button>
+      <div class="link-row"><button type="button" class="link-btn" onclick="showEmployeeLogin()">Back to sign in</button></div>
+    </form>
+
+    <form id="form-password-recovery" style="display:none" autocomplete="on" onsubmit="event.preventDefault();updateRecoveredPasswordFromLogin()">
+      <p class="form-note">Enter your new attendance password.</p>
+      <div class="field">
+        <label>New Password</label>
+        <div class="pass-wrap">
+          <input type="password" id="recovery-pass" name="new-password" placeholder="Minimum 6 characters" autocomplete="new-password" />
+          <button type="button" class="pass-toggle" onclick="togglePass('recovery-pass',this)" aria-label="Show password" title="Show password">
+            <svg class="icon-show" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="icon-hide" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn-full" type="submit">Save new password</button>
     </form>
 
     <form id="form-admin" style="display:none" autocomplete="on" onsubmit="event.preventDefault();doAdminLogin()">
@@ -209,6 +253,7 @@ footer{
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared.js?v=test-lockout-bypass-20260811"></script>
 <script>
 "use strict";
@@ -219,12 +264,23 @@ function switchTab(tab) {
   document.getElementById("tab-employee").classList.toggle("active", tab === "employee");
   document.getElementById("tab-admin").classList.toggle("active", tab === "admin");
   document.getElementById("form-employee").style.display = tab === "employee" ? "" : "none";
+  document.getElementById("form-password-setup").style.display = "none";
+  document.getElementById("form-password-recovery").style.display = "none";
   document.getElementById("form-admin").style.display = tab === "admin" ? "" : "none";
   document.getElementById("err-box").style.display = "none";
+  document.getElementById("err-box").classList.remove("ok");
 }
 
 function showErr(msg) {
   const el = document.getElementById("err-box");
+  el.classList.remove("ok");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function showOk(msg) {
+  const el = document.getElementById("err-box");
+  el.classList.add("ok");
   el.textContent = msg;
   el.style.display = "block";
 }
@@ -239,39 +295,115 @@ function togglePass(inputId, btn) {
   btn.title = show ? "Hide password" : "Show password";
 }
 
+function showEmployeeLogin() {
+  document.getElementById("form-employee").style.display = "";
+  document.getElementById("form-password-setup").style.display = "none";
+  document.getElementById("form-password-recovery").style.display = "none";
+  document.getElementById("form-admin").style.display = "none";
+  document.getElementById("err-box").style.display = "none";
+  document.getElementById("err-box").classList.remove("ok");
+}
+
+function showEmployeePasswordSetup() {
+  const email = document.getElementById("emp-email").value.trim();
+  document.getElementById("setup-email").value = email;
+  document.getElementById("form-employee").style.display = "none";
+  document.getElementById("form-password-setup").style.display = "";
+  document.getElementById("form-password-recovery").style.display = "none";
+  document.getElementById("form-admin").style.display = "none";
+  document.getElementById("err-box").style.display = "none";
+}
+
+function showRecoveryForm() {
+  document.getElementById("tab-employee").classList.add("active");
+  document.getElementById("tab-admin").classList.remove("active");
+  document.getElementById("form-employee").style.display = "none";
+  document.getElementById("form-password-setup").style.display = "none";
+  document.getElementById("form-password-recovery").style.display = "";
+  document.getElementById("form-admin").style.display = "none";
+}
+
 async function doEmployeeLogin() {
   if (loginBusy) return;
 
-  const code = document.getElementById("emp-code").value.trim().toUpperCase();
+  const email = document.getElementById("emp-email").value.trim();
   const pass = document.getElementById("emp-pass").value;
-  const emp = EMPLOYEES[code];
-  const isTestLogin = code === "TEST";
 
-  const lockMsg = isTestLogin ? null : loginLockoutMessage();
+  const lockMsg = loginLockoutMessage();
   if (lockMsg) { showErr(lockMsg); return; }
 
-  if (!code) { showErr("Please enter your employee code."); return; }
+  if (!email) { showErr("Please enter your email."); return; }
   if (!pass) { showErr("Please enter your password."); return; }
-  if (!emp) { showErr("Employee code not found."); return; }
-  if (emp.status !== "Active") { showErr("Account is inactive. Contact HR."); return; }
 
   loginBusy = true;
   try {
     if (!getConfig()) { showErr("Server config missing. Contact your administrator."); return; }
-    const ok = await verifyEmployeePassword(code, pass);
-    if (!ok) {
-      if (!isTestLogin) recordFailedLogin();
-      const msg = isTestLogin ? null : loginLockoutMessage();
-      showErr(msg || "Incorrect password.");
-      return;
-    }
-    if (!isTestLogin) clearLoginAttempts();
-    setSession({ role: "employee", empCode: code });
+    const profile = await signInEmployeeWithEmail(email, pass);
+    clearLoginAttempts();
+    setSession({ role: "employee", empCode: profile.code, emp: profile.emp });
     navigateReplace("employee");
   } catch (e) {
     console.error(e);
+    recordFailedLogin();
+    const lock = loginLockoutMessage();
     const msg = e && e.message ? String(e.message) : "";
-    showErr(msg.includes("Login is not configured") ? msg : (isLoginConfigured() ? "Login failed. Clear browser cache, hard refresh (Ctrl+Shift+R), and try again." : "Login credentials missing on this deploy."));
+    showErr(lock || msg || "Invalid email or password.");
+  } finally {
+    loginBusy = false;
+  }
+}
+
+async function createPasswordFromLogin() {
+  if (loginBusy) return;
+  const email = document.getElementById("setup-email").value.trim();
+  const pass = document.getElementById("setup-pass").value;
+  if (!email) { showErr("Please enter your email."); return; }
+  if (!pass || pass.length < 6) { showErr("Password must be at least 6 characters."); return; }
+  loginBusy = true;
+  try {
+    await createEmployeePassword(email, pass);
+    showOk("Password request saved. If Supabase asks for email confirmation, please check your inbox. You can sign in after confirmation.");
+    document.getElementById("emp-email").value = email;
+    document.getElementById("emp-pass").value = "";
+    showEmployeeLogin();
+    showOk("Password created. If email confirmation is enabled, confirm your inbox before signing in.");
+  } catch (e) {
+    console.error(e);
+    showErr((e && e.message) || "Could not create password.");
+  } finally {
+    loginBusy = false;
+  }
+}
+
+async function sendPasswordResetFromLogin() {
+  if (loginBusy) return;
+  const email = document.getElementById("emp-email").value.trim();
+  if (!email) { showErr("Enter your email first, then press Forgot password."); return; }
+  loginBusy = true;
+  try {
+    await sendEmployeePasswordReset(email);
+    showOk("If this account has a password, a reset link has been sent to the email.");
+  } catch (e) {
+    console.error(e);
+    showErr((e && e.message) || "Could not send reset email.");
+  } finally {
+    loginBusy = false;
+  }
+}
+
+async function updateRecoveredPasswordFromLogin() {
+  if (loginBusy) return;
+  const pass = document.getElementById("recovery-pass").value;
+  if (!pass || pass.length < 6) { showErr("Password must be at least 6 characters."); return; }
+  loginBusy = true;
+  try {
+    await updateCurrentEmployeePassword(pass);
+    showOk("Password updated. Please sign in with your new password.");
+    await getSupabaseAuthClient().auth.signOut();
+    showEmployeeLogin();
+  } catch (e) {
+    console.error(e);
+    showErr((e && e.message) || "Could not update password.");
   } finally {
     loginBusy = false;
   }
@@ -310,12 +442,27 @@ async function doAdminLogin() {
   }
 }
 
+async function initPasswordRecoveryListener() {
+  try {
+    const client = getSupabaseAuthClient();
+    client.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") showRecoveryForm();
+    });
+    if (location.hash.includes("type=recovery") || location.search.includes("type=recovery")) {
+      showRecoveryForm();
+    }
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
 if (!getConfig()?.supabaseUrl) {
   showErr("Supabase not configured. Check config.production.js on GitHub.");
 } else if (!isLoginConfigured()) {
   showErr("Login not configured. config.auth.js is missing from the live site — wait for GitHub deploy or contact admin.");
 } else {
-  redirectIfLoggedIn();
+  initPasswordRecoveryListener();
+  if (!location.hash.includes("type=recovery") && !location.search.includes("type=recovery")) redirectIfLoggedIn();
 }
 </script>
 </body>

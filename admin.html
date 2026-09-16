@@ -14,6 +14,7 @@
 <script src="config.production.js"></script>
 <script src="config.auth.js"></script>
 <script src="config.js" onerror="void 0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared.js?v=export-scope-format-20260812"></script>
 <script>const ADMIN_SESSION=requireAdmin();const ADMIN_CAN_WRITE=ADMIN_SESSION.adminMode!=='readonly';</script>
 
@@ -155,7 +156,7 @@
     <!-- ══ EMPLOYEES ══ -->
     <div class="page-section" id="sec-employees">
       <div class="card-header" style="margin-bottom:16px">
-        <div><div class="card-title">Employee Directory</div><div class="card-sub">Add, edit, activate, or deactivate employees</div></div>
+        <div><div class="card-title">Employee Directory</div><div class="card-sub">Create attendance users, manage their email, and activate or deactivate access</div></div>
         <button class="btn btn-sm btn-primary admin-write-only" onclick="openEmpAdd()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add New Employee
         </button>
@@ -238,7 +239,7 @@
     <div class="field"><label>Email</label><input type="email" id="emp-email-edit" placeholder="email@example.com"/></div>
     <div class="notice notice-info" style="font-size:12px">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      If you add a new employee, create their login password in admin credentials as needed.
+      Employees sign in with this email. After saving, they can create their own password from the login screen.
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeAll()">Cancel</button>
@@ -621,7 +622,7 @@ function renderEmpDir(){
       <td><span class="badge ${emp.status==='Active'?'badge-green':'badge-red'}">${escapeHtml(emp.status||'Active')}</span></td>
       <td style="text-align:center">${recs.length}</td>
       <td>${mins?`<span class="hours-pill" style="font-size:11px">${fmtHours(mins)}</span>`:'—'}</td>
-      ${ADMIN_CAN_WRITE?`<td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEmpEdit('${escapeHtml(code)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit</button></td>`:''}
+      ${ADMIN_CAN_WRITE?`<td style="white-space:nowrap"><button class="btn btn-sm" onclick="openEmpEdit('${escapeHtml(code)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit</button> <button class="btn btn-sm" onclick="sendSetupLink('${escapeHtml(code)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>Setup link</button></td>`:''}
     </tr>`;
   });
   html+='</tbody></table></div>';
@@ -675,6 +676,8 @@ async function saveEmpMaster(){
   };
   if(!code){alert('Employee code is required.');return;}
   if(!emp.name){alert('Employee name is required.');return;}
+  if(!emp.email){alert('Employee email is required for login.');return;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emp.email)){alert('Please enter a valid employee email.');return;}
   try{
     if(original&&original!==code&&EMPLOYEES[original]){
       const oldEmp=Object.assign({},EMPLOYEES[original],{hidden:true,status:'Inactive'});
@@ -691,6 +694,18 @@ async function saveEmpMaster(){
   renderLocation();
   renderHours();
   renderManualTs();
+}
+
+async function sendSetupLink(code){
+  if(!requireAdminWrite('send setup links')) return;
+  const emp=EMPLOYEES[String(code||'').trim().toUpperCase()];
+  if(!emp||!emp.email){alert('This employee does not have an email saved.');return;}
+  try{
+    await sendEmployeePasswordReset(emp.email);
+    alert('Setup/reset link sent if the email has an attendance login. New employees can also create their password from the login screen.');
+  }catch(err){
+    alert((err&&err.message)||'Could not send setup link.');
+  }
 }
 
 /* ── EDIT ── */
