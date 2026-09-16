@@ -187,7 +187,7 @@ footer{
       </button>
       <div class="link-row">
         <button type="button" class="link-btn" onclick="showEmployeePasswordSetup()">Create password</button>
-        <button type="button" class="link-btn" onclick="sendPasswordResetFromLogin()">Forgot password?</button>
+        <button type="button" class="link-btn" onclick="sendPasswordResetFromLogin()">Email setup/reset link</button>
       </div>
     </form>
 
@@ -212,7 +212,7 @@ footer{
     </form>
 
     <form id="form-password-recovery" style="display:none" autocomplete="on" onsubmit="event.preventDefault();updateRecoveredPasswordFromLogin()">
-      <p class="form-note">Enter your new attendance password.</p>
+      <p class="form-note">Set your attendance password after opening the email link.</p>
       <div class="field">
         <label>New Password</label>
         <div class="pass-wrap">
@@ -378,14 +378,14 @@ async function createPasswordFromLogin() {
 async function sendPasswordResetFromLogin() {
   if (loginBusy) return;
   const email = document.getElementById("emp-email").value.trim();
-  if (!email) { showErr("Enter your email first, then press Forgot password."); return; }
+  if (!email) { showErr("Enter your email first, then press Email setup/reset link."); return; }
   loginBusy = true;
   try {
     await sendEmployeePasswordReset(email);
-    showOk("If this account has a password, a reset link has been sent to the email.");
+    showOk("Setup/reset email sent. Open the link in your inbox, then set your new password here.");
   } catch (e) {
     console.error(e);
-    showErr((e && e.message) || "Could not send reset email.");
+    showErr((e && e.message) || "Could not send setup/reset email.");
   } finally {
     loginBusy = false;
   }
@@ -445,10 +445,11 @@ async function doAdminLogin() {
 async function initPasswordRecoveryListener() {
   try {
     const client = getSupabaseAuthClient();
-    client.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") showRecoveryForm();
+    client.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session && !getSession())) showRecoveryForm();
     });
-    if (location.hash.includes("type=recovery") || location.search.includes("type=recovery")) {
+    const urlState = location.hash + location.search;
+    if (urlState.includes("type=recovery") || urlState.includes("type=magiclink") || urlState.includes("code=")) {
       showRecoveryForm();
     }
   } catch (e) {

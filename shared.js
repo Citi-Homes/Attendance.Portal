@@ -329,10 +329,14 @@ async function sendEmployeePasswordReset(email) {
   const profile = findEmployeeByEmail(email);
   if (!profile) throw new Error("This email is not registered for attendance. Please contact HR.");
   const client = getSupabaseAuthClient();
-  const { error } = await client.auth.resetPasswordForEmail(normalizeEmail(email), {
-    redirectTo: routeFor("login")
+  const { error } = await client.auth.signInWithOtp({
+    email: normalizeEmail(email),
+    options: {
+      emailRedirectTo: routeFor("login"),
+      shouldCreateUser: true
+    }
   });
-  if (error) throw new Error(error.message || "Could not send password reset email.");
+  if (error) throw new Error(error.message || "Could not send setup/reset email.");
   return profile;
 }
 

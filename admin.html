@@ -24,7 +24,7 @@
     <span class="brand-name">Citi Homes Attendance Portal</span>
   </a>
   <div class="topbar-mid">
-    <a class="btn btn-sm btn-download-app" href="apk-downloads/CitiHomesAttendance.apk?v=1.4" download="CitiHomesAttendance.apk" aria-label="Download Citi Homes Attendance Android app">Download Attendance App</a>
+    <a class="btn btn-sm btn-download-app" href="apk-downloads/CitiHomesAttendance.apk?v=1.5" download="CitiHomesAttendance.apk" aria-label="Download Citi Homes Attendance Android app">Download Attendance App</a>
     <span id="live-clock"></span>
     <button class="btn btn-sm btn-ghost" onclick="logout()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sign out
@@ -702,7 +702,7 @@ async function sendSetupLink(code){
   if(!emp||!emp.email){alert('This employee does not have an email saved.');return;}
   try{
     await sendEmployeePasswordReset(emp.email);
-    alert('Setup/reset link sent if the email has an attendance login. New employees can also create their password from the login screen.');
+    alert('Setup/reset email sent. The employee can open the email link and set a new attendance password.');
   }catch(err){
     alert((err&&err.message)||'Could not send setup link.');
   }
