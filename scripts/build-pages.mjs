@@ -16,6 +16,7 @@ const STATIC_FILES = [
   "admin.html",
   "setup.html",
   "shared.js",
+  "supabase-2.116.0.js",
   "styles.css",
   "web.config",
   "config.production.js",
@@ -39,6 +40,12 @@ for (const file of STATIC_FILES) {
 }
 
 fs.writeFileSync(path.join(dist, ".nojekyll"), "");
+
+// Keep existing app downloads available when publishing the portal.
+const downloads = path.join(root, "apk-downloads");
+if (fs.existsSync(downloads)) {
+  fs.cpSync(downloads, path.join(dist, "apk-downloads"), { recursive: true });
+}
 
 const cnamePath = path.join(root, "CNAME");
 if (fs.existsSync(cnamePath)) {
