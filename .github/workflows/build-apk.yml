@@ -48,7 +48,7 @@ jobs:
         timeout-minutes: 12
         run: |
           set +e
-          ./gradlew --no-daemon assembleDebug --stacktrace --warning-mode all 2>&1 | tee ../gradle-build.log
+          ./gradlew --no-daemon testDebugUnitTest assembleDebug --stacktrace --warning-mode all 2>&1 | tee ../gradle-build.log
           status=${PIPESTATUS[0]}
           echo "$status" > ../gradle-status.txt
           exit "$status"
@@ -65,8 +65,19 @@ jobs:
           mkdir -p apk
           cp android/app/build/outputs/apk/debug/app-debug.apk apk/CitiHomesAttendance.apk
 
+      - name: Check compatibility with installed APK
+        run: |
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          old=$("$signer" verify --print-certs apk-downloads/CitiHomesAttendance.apk | grep 'Signer #1 certificate SHA-256 digest')
+          new=$("$signer" verify --print-certs apk/CitiHomesAttendance.apk | grep 'Signer #1 certificate SHA-256 digest')
+          if [ "$old" = "$new" ]; then
+            echo "Signing certificate matches: in-place update supported." | tee apk/update-compatibility.txt
+          else
+            echo "Signing certificate differs: do not publish as an in-place update. Original signing keystore required." | tee apk/update-compatibility.txt
+          fi
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: CitiHomesAttendance.apk
-          path: apk/CitiHomesAttendance.apk
+          path: apk/

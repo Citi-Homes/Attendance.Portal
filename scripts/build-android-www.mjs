@@ -15,6 +15,7 @@ const FILES = [
   "admin.html",
   "setup.html",
   "shared.js",
+  "punch-location.js",
   "supabase-2.116.0.js",
   "styles.css",
   "config.production.js",

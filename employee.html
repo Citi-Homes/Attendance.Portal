@@ -15,6 +15,7 @@
 <script src="config.js" onerror="void 0"></script>
 <script src="supabase-2.116.0.js"></script>
 <script src="shared.js"></script>
+<script src="punch-location.js"></script>
 <script>const SESSION=requireEmployee();const EMP=SESSION.emp;const EMPCODE=SESSION.empCode;</script>
 
 <!-- TOPBAR -->
@@ -509,7 +510,7 @@ function officePunchOutReminderKey(rec){
   return `office_punch_out_reminder_${EMPCODE}_${todayISO()}_${rec&&rec.id?rec.id:'active'}`;
 }
 function canUsePunchOutNotification(){
-  return typeof window!=='undefined'&&'Notification' in window;
+  return !isCapacitorApp()&&typeof window!=='undefined'&&'Notification' in window;
 }
 async function ensurePunchOutNotificationPermission(){
   if(!canUsePunchOutNotification()) return false;
@@ -700,12 +701,14 @@ function selCat(cat){
 
 /* ══ OFFICE ══ */
 async function saveOffIn(){
+  const loc = await requirePunchLocation();
+  if (!loc) return;
   const notificationPermission=ensurePunchOutNotificationPermission();
   const d=new Date();
   const rec={id:Date.now(),empCode:EMPCODE,empName:EMP.name,designation:EMP.desig,department:EMP.dept,
     category:'Office',punchIn:fmtDT(d),punchOut:'',remarks:document.getElementById('off-in-rem').value.trim(),
     locIn:null,locOut:null,status:'Punched In',extra:{}};
-  silentLocIn(rec);
+  rec.locIn=loc;
   allRecords.unshift(rec);flow.activeId=rec.id;
   try{await persistRec(rec);}catch{return;}
   notificationPermission.catch(()=>{});
@@ -714,11 +717,13 @@ async function saveOffIn(){
   schedulePunchOutReminder();
 }
 async function saveOffOut(){
+  const loc = await requirePunchLocation();
+  if (!loc) return;
   const d=new Date();
   const rec=allRecords.find(r=>r.id===flow.activeId);
   if(rec){
     rec.punchOut=fmtDT(d);rec.status='Completed';
-    silentLocOut(rec);
+    rec.locOut=loc;
     const ex=document.getElementById('off-out-rem').value.trim();
     if(ex)rec.remarks=(rec.remarks?rec.remarks+' | ':'')+ex;
     try{await persistRec(rec);}catch{return;}
@@ -737,14 +742,14 @@ function renderProcPrev(){
   vl.innerHTML=flow.procVisits.length?`<ul class="visit-list">${flow.procVisits.map((v,i)=>`<li><strong>Visit ${i+1}:</strong> ${v.clientType}: ${v.clientName} — ${v.reason}</li>`).join('')}</ul>`:'';
 }
 async function saveProcIn(){
+  const locSnap=await requirePunchLocation();
+  if (!locSnap) return;
   const d=new Date();
-  const locSnap=getSilentLocSnapshot();
   flow.curVisit={punchIn:fmtDT(d),locIn:locSnap};
   if(!flow.procMainRec){
     flow.procMainRec={id:Date.now(),empCode:EMPCODE,empName:EMP.name,designation:EMP.desig,department:EMP.dept,
       category:'Procurement',punchIn:fmtDT(d),punchOut:'',remarks:'',locIn:locSnap,locOut:null,status:'In Progress',extra:{visits:[]}};
     allRecords.unshift(flow.procMainRec);flow.activeId=flow.procMainRec.id;
-    silentLocIn(flow.procMainRec);
     try{await persistRec(flow.procMainRec);}catch{return;}
   }
   closeAll();
@@ -791,11 +796,13 @@ function procNextVisit(){
   closeAll();renderProcPrev();setSteps('st-proc-in',1,4);tsBlock('ts-proc-in');openOv('ov-proc-in');
 }
 async function procReturnOffice(){
+  const loc = await requirePunchLocation();
+  if (!loc) return;
   const d=new Date();
   const rec=allRecords.find(r=>r.id===flow.activeId);
   if(rec){
     rec.punchOut=fmtDT(d);rec.status='Completed';
-    silentLocOut(rec);
+    rec.locOut=loc;
     try{await persistRec(rec);}catch{return;}
   }
   closeAll();renderTodayCard();
@@ -864,11 +871,13 @@ async function saveIvCand(){
   const phone=document.getElementById('iv-cphone').value.trim();
   const rem=document.getElementById('iv-remarks').value.trim();
   if(!name){alert('Please enter candidate name.');return;}
+  const loc = await requirePunchLocation();
+  if (!loc) return;
   const rec={id:Date.now(),empCode:EMPCODE,empName:EMP.name,designation:EMP.desig,department:EMP.dept,
     category:'Interview',punchIn:flow.ivStart,punchOut:flow.ivEnd,remarks:rem,
     locIn:flow.ivLocIn||getSilentLocSnapshot(),locOut:null,status:'Recorded',
     extra:{ivLocation:flow.ivLoc==='inside'?'Inside office':'Outside — '+flow.ivArea,position:flow.ivPos,candidateName:name,candidateContact:phone}};
-  silentLocIn(rec);
+  rec.locIn=loc;
   allRecords.unshift(rec);
   try{await persistRec(rec);}catch{return;}
   closeAll();renderTodayCard();
