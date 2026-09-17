@@ -68,15 +68,19 @@ jobs:
       - name: Check compatibility with installed APK
         run: |
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          old=$("$signer" verify --print-certs apk-downloads/CitiHomesAttendance.apk | grep 'Signer #1 certificate SHA-256 digest')
-          new=$("$signer" verify --print-certs apk/CitiHomesAttendance.apk | grep 'Signer #1 certificate SHA-256 digest')
-          if [ "$old" = "$new" ]; then
+          "$signer" verify --print-certs apk-downloads/CitiHomesAttendance.apk > apk/previous-certificate.txt
+          "$signer" verify --print-certs apk/CitiHomesAttendance.apk > apk/new-certificate.txt
+          cat apk/previous-certificate.txt apk/new-certificate.txt
+          old=$(grep -i 'certificate SHA-256 digest:' apk/previous-certificate.txt | head -1 | sed 's/.*digest: //' || true)
+          new=$(grep -i 'certificate SHA-256 digest:' apk/new-certificate.txt | head -1 | sed 's/.*digest: //' || true)
+          if [ -n "$old" ] && [ "$old" = "$new" ]; then
             echo "Signing certificate matches: in-place update supported." | tee apk/update-compatibility.txt
           else
             echo "Signing certificate differs: do not publish as an in-place update. Original signing keystore required." | tee apk/update-compatibility.txt
           fi
 
       - name: Upload APK artifact
+        if: ${{ always() && hashFiles('apk/CitiHomesAttendance.apk') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: CitiHomesAttendance.apk
